@@ -1,16 +1,46 @@
-name := "EventHub"
-coverageEnabled := true
 
-lazy val akkaHttpVersion = "10.2.1"
-lazy val akkaVersion    = "2.6.9"
 
-lazy val root = (project in file(".")).
+lazy val akkaHttpVersion = "10.2.2"
+lazy val akkaVersion     = "2.6.10"
+lazy val circeVersion    = "0.12.3"
+
+
+lazy val sharedSettings = Seq(
+  organization := "ng.itcglobal",
+  version      := "0.1.0",
+  scalaVersion := "2.13.3",
+  trapExit := false,
+  scalacOptions ++= Seq(
+    "-deprecation", 
+    "-feature", 
+    "-unchecked"
+  ))
+
+
+lazy val hinata = (project in file("."))
+  .aggregate(core, web, job).settings()
+
+lazy val web = (project in file("web"))
+  .dependsOn(core, job)
+  .settings(
+    sharedSettings, 
+    mainClass in assembly := Some("ng.itcglobal.hinata.web.Main")
+  )
+
+lazy val job = (project in file("job"))
+  .dependsOn(core)
+  .settings(
+    sharedSettings, 
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-http-testkit"        % akkaHttpVersion % Test,
+      "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion     % Test,
+      "org.scalatest"     %% "scalatest"                % "3.2.2"         % Test, 
+    )
+  )
+
+lazy val core = (project in file("core")).
   settings(
-    inThisBuild(List(
-      organization    := "com.cyapex",
-      scalaVersion    := "2.13.3"
-    )),
-    name := "akka-http-quickstart-scala",
+    sharedSettings, 
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-http"                    % akkaHttpVersion,
       "com.typesafe.akka" %% "akka-http-spray-json"         % akkaHttpVersion,
@@ -23,20 +53,16 @@ lazy val root = (project in file(".")).
       "com.typesafe.akka" %% "akka-persistence-cassandra"   % "1.0.3",
       "ch.qos.logback"    % "logback-classic"               % "1.2.3",
 
-      "com.typesafe.akka" %% "akka-http-testkit"        % akkaHttpVersion % Test,
-      "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion     % Test,
-      "org.scalatest"     %% "scalatest"                % "3.0.8"         % Test
+      "io.circe"          %% "circe-core"       % circeVersion,
+      "io.circe"          %% "circe-generic"    % circeVersion,
+      "io.circe"          %% "circe-parser"     % circeVersion,
+      "de.heikoseeberger" %% "akka-http-circe"  % "1.31.0",
     )
   )
 
-val circeVersion = "0.12.3"
+resolvers += "Sonatype release repository" at "https://oss.sonatype.org/content/repositories/releases/"
 
-libraryDependencies ++= Seq(
-  "io.circe"          %% "circe-core"       % circeVersion,
-  "io.circe"          %% "circe-generic"    % circeVersion,
-  "io.circe"          %% "circe-parser"     % circeVersion,
-  "de.heikoseeberger" %% "akka-http-circe"  % "1.31.0",
-)
+
 
 scalacOptions in Compile ++= Seq("-deprecation", "-feature", "-unchecked", "-Xlog-reflective-calls", "-Xlint")
 
