@@ -2,7 +2,6 @@ package ng.itcglobal.hinata
 package job
 
 import akka.actor.typed.{ ActorRef, Behavior }
-import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 
 object JobRepository{

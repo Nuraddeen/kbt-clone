@@ -2,7 +2,7 @@
 
 lazy val akkaHttpVersion = "10.2.2"
 lazy val akkaVersion     = "2.6.10"
-lazy val circeVersion    = "0.12.3"
+lazy val circeVersion    = "0.14.0-M2"
 
 
 lazy val sharedSettings = Seq(
@@ -39,6 +39,7 @@ lazy val job = (project in file("job"))
   )
 
 lazy val core = (project in file("core")).
+  
   settings(
     sharedSettings, 
     libraryDependencies ++= Seq(
@@ -52,10 +53,7 @@ lazy val core = (project in file("core")).
       "com.typesafe.akka" %% "akka-cluster-tools"           % akkaVersion,
       "com.typesafe.akka" %% "akka-persistence-cassandra"   % "1.0.3",
       "ch.qos.logback"    % "logback-classic"               % "1.2.3",
-
-      "io.circe"          %% "circe-core"       % circeVersion,
-      "io.circe"          %% "circe-generic"    % circeVersion,
-      "io.circe"          %% "circe-parser"     % circeVersion,
+      "io.spray"          %%  "spray-json"                  % "1.3.6",
       "de.heikoseeberger" %% "akka-http-circe"  % "1.31.0",
     )
   )
