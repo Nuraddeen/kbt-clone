@@ -12,3 +12,7 @@ To run this project run the following command on the terminal
  sbt test 
  sbt run 
 ```
+
+A few implemented endpoints 
+
+```get  localhost
