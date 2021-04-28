@@ -1,8 +1,10 @@
-package ng.itcglobal.hinata
-package job
+package ng.itcglobal.kabuto.dms
+
+import java.io.File
 
 import akka.actor.typed.{ ActorRef, Behavior }
 import akka.actor.typed.scaladsl.Behaviors
+
 
 object JobRepository{
 
@@ -38,8 +40,11 @@ object JobRepository{
       Behaviors.same
 
     case AddJob(job, replyTo) => 
+
+
       replyTo ! OK 
-      JobRepository(jobs.+(job.id -> job))   
+      JobRepository.apply(jobs.+(job.id -> job))   
+      Behaviors.same
 
 
     case GetJobById(id, replyTo) => 

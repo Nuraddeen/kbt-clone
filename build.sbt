@@ -17,17 +17,17 @@ lazy val sharedSettings = Seq(
   ))
 
 
-lazy val hinata = (project in file("."))
-  .aggregate(core, web, job).settings()
+lazy val kabuto = (project in file("."))
+  .aggregate(core, web, dms).settings()
 
 lazy val web = (project in file("web"))
-  .dependsOn(core, job)
+  .dependsOn(core, dms)
   .settings(
     sharedSettings, 
-    mainClass in assembly := Some("ng.itcglobal.hinata.web.Main")
+    mainClass in assembly := Some("ng.itcglobal.kabuto.web.Main")
   )
 
-lazy val job = (project in file("job"))
+lazy val dms = (project in file("dms"))
   .dependsOn(core)
   .settings(
     sharedSettings, 
@@ -54,7 +54,12 @@ lazy val core = (project in file("core")).
       "com.typesafe.akka" %% "akka-persistence-cassandra"   % "1.0.3",
       "ch.qos.logback"    % "logback-classic"               % "1.2.3",
       "io.spray"          %%  "spray-json"                  % "1.3.6",
-      "de.heikoseeberger" %% "akka-http-circe"  % "1.31.0",
+      "de.heikoseeberger" %% "akka-http-circe"              % "1.31.0",
+      "com.twelvemonkeys.imageio" % "imageio-tiff"          % "3.6.4",
+      "com.twelvemonkeys.imageio" % "imageio-core"          % "3.6.4",
+      "com.twelvemonkeys.contrib" % "contrib"               % "3.6.4",
+      "com.sksamuel.scrimage"     % "scrimage-core"         % "4.0.18"
+
     )
   )
 

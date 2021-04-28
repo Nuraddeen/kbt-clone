@@ -1,21 +1,21 @@
-package ng.itcglobal.hinata
-package web.routes
+package ng.itcglobal.kabuto.web.routes
 
-import scala.concurrent.duration._ 
+import java.io.File
+import javax.imageio.ImageIO
+import com.twelvemonkeys.contrib.tiff._
+import com.twelvemonkeys.contrib.tiff.TIFFUtilities.TIFFPage
+
+import scala.concurrent.duration._
 import scala.concurrent.Future
-
-import akka.actor.typed.{ActorRef, ActorSystem }
+import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.util.Timeout
-
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives._ 
+import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import ng.itcglobal.kabuto._
+import ng.itcglobal.kabuto.dms.{JobRepository, JsonSupport}
 
-import ng.itcglobal.hinata._ 
-
-import job.{JobRepository, JsonSupport }
-
-class   JobRoutes(buildJobRepository: ActorRef[JobRepository.Command])(implicit system: ActorSystem[_]) extends JsonSupport {
+class   DmsRoutes(buildJobRepository: ActorRef[JobRepository.Command])(implicit system: ActorSystem[_]) extends JsonSupport {
 
   import akka.actor.typed.scaladsl.AskPattern.schedulerFromActorSystem
   import akka.actor.typed.scaladsl.AskPattern.Askable
@@ -26,6 +26,10 @@ class   JobRoutes(buildJobRepository: ActorRef[JobRepository.Command])(implicit 
     pathPrefix("jobs"){
       concat(
         get{
+
+          val m  = (new File("data/RES-2014-2368.tif"))
+          val files = TIFFUtilities.split(m, new File("data/xxx"))
+
           complete(JobRepository.Job(1L, "men", JobRepository.Successful, 3L))
         },
         pathEnd{
@@ -34,7 +38,7 @@ class   JobRoutes(buildJobRepository: ActorRef[JobRepository.Command])(implicit 
               entity(as[JobRepository.Job]) { job => 
                 val operationPerformed = buildJobRepository.ask(JobRepository.AddJob(job, _))
                 onSuccess(operationPerformed) {
-                  case JobRepository.OK         => complete("Job added")
+                  case JobRepository.OK         => complete(StatusCodes.OK, "Job added")
                   case JobRepository.KO(reason) => complete(StatusCodes.InternalServerError -> reason)
                 }
               }

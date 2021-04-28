@@ -1,5 +1,4 @@
-package ng.itcglobal.hinata
-package job
+package ng.itcglobal.kabuto.dms
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json.DefaultJsonProtocol

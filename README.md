@@ -1,18 +1,9 @@
-## Hinata
-Hinata is a seed project structured in a way that show case itc-global's code 
-implementation for scala related projects. 
-
-The code in this project is copied from the akka typed minimal-example found here
-https://doc.akka.io/docs/akka-http/current/routing-dsl/index.html#minimal-example
+## Kabuto
+A document management system for ITC Global 
 
 
-To run this project run the following command on the terminal 
-``` 
- sbt compile
- sbt test 
- sbt run 
-```
 
-A few implemented endpoints 
-
-```get  localhost
+## Key functionality
+1. provide endpoints for retrieving .tiff stored document based on some metadata. (file number, file type, title name)
+2. provide an endpoint to append a base64 string image(scanned file) to a .tiff file(folder) 
+3. store a file's metadata for retrieval 

@@ -1,18 +1,13 @@
-package ng.itcglobal.hinata
-package web
+package ng.itcglobal.kabuto.web
 
-import scala.util.{ Success, Failure }
-
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior,  PostStop}
+import scala.util.{Failure, Success}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.Http
-
-import ng.itcglobal.hinata._
-
-import job.JobRepository
-
-import web.routes.JobRoutes
+import ng.itcglobal.kabuto._
+import ng.itcglobal.kabuto.dms.JobRepository
+import ng.itcglobal.kabuto.web.routes.DmsRoutes
 
 
 object Server {
@@ -27,7 +22,7 @@ object Server {
     implicit val system = ctx.system
 
     val buildJobRepository = ctx.spawn(JobRepository(), "jobRepository")
-    val route              = new JobRoutes(buildJobRepository)
+    val route              = new DmsRoutes(buildJobRepository)
 
     val serverBinding = Http().newServerAt(host, port).bind(route.jobRoutes)
 
@@ -70,6 +65,6 @@ object Server {
 
 
 def main(args: Array[String]): Unit = {
-  val system: ActorSystem[Server.Message] = ActorSystem(Server("localhost", 8090), "BuildJobsServer")
+  val system: ActorSystem[Server.Message] = ActorSystem(Server.apply("localhost", 8090), "BuildJobsServer")
  }
 }
