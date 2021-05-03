@@ -58,7 +58,8 @@ lazy val core = (project in file("core")).
       "com.twelvemonkeys.imageio" % "imageio-tiff"          % "3.6.4",
       "com.twelvemonkeys.imageio" % "imageio-core"          % "3.6.4",
       "com.twelvemonkeys.contrib" % "contrib"               % "3.6.4",
-      "com.sksamuel.scrimage"     % "scrimage-core"         % "4.0.18"
+      "com.sksamuel.scrimage"     % "scrimage-core"         % "4.0.18",
+      "com.github.pathikrit"      %% "better-files"         % "3.9.1"
 
     )
   )

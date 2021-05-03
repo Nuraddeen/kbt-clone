@@ -2,7 +2,7 @@ package ng.itcglobal.kabuto.dms
 
 import org.scalatest.wordspec.AnyWordSpecLike
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import ng.itcglobal.hinata._
+import ng.itcglobal.kabuto._
 import JobRepository._
 
 class JobRepositorySpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
