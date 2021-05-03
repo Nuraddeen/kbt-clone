@@ -20,11 +20,11 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
 
    val fileManager = testKit.spawn( FileManagerService(), "fileManagerService")
    val probe       = testKit.createTestProbe[FileManagerService.FileResponse]()
-   val fileDestination = "data/xyz"
-   val singleTiffFile  = "data/RES-2014-2368.tif"
+   val fileDestination = "data/xyz/"
+   val singleTiffFile  = "data/dms/com-23-56.tif"
   import FileManagerService._
 
-   val getFile = GetFileByPath("data/xxx", probe.ref)
+   val getFile = GetFileByPath("data/xxx/", probe.ref)
 
   "the FileManagerService" must {
 
@@ -37,9 +37,10 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
     }
 
     "retrieve files from a dir and return a base64 string image of all images in the dir" in {
-      fileManager ! getFile
+       val dirPath = "data/xxx"
+      fileManager ! GetFileByPath(dirPath, probe.ref)
 
-      val bytesString = File(fileDestination).list.toList.map{ tif: File =>
+      val bytesString = File(dirPath).list.toList.map{ tif: File =>
         val byte = FileManagerService.resizeTiff(tif)
         java.util.Base64.getEncoder.encodeToString(byte)
       }
@@ -48,7 +49,7 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
     }
 
     "append a file into a directory" in {
-      val fileBytes = Base64.getEncoder.encodeToString(File("data/dms/test/testFile.tif").bytes.toArray)
+      val fileBytes = Base64.getEncoder.encodeToString(File("data/dms/test/test-image-extension/test-tiff-file.tiff").bytes.toArray)
 
       val appendFile = AppendFileToDir(
         filename   = "testFileMoved",
@@ -64,7 +65,7 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
     }
 
     "assert that wrong dir will throw a FileResponseError" in {
-      val fileBytes = Base64.getEncoder.encodeToString(File("data/dms/test/testFile.tif").bytes.toArray)
+      val fileBytes = Base64.getEncoder.encodeToString(File("data/dms/test/test-image-extension/test-tiff-file.tiff").bytes.toArray)
 
       println(fileBytes.take(20))
       val appendFile = AppendFileToDir(
