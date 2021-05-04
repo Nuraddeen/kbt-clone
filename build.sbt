@@ -64,6 +64,13 @@ lazy val core = (project in file("core")).
     )
   )
 
+libraryDependencies ++= Seq(
+  "org.postgresql"  %  "postgresql" % "42.2.8",
+  "io.getquill"     %% "quill-async-postgres" % "3.7.0"
+)
+
+libraryDependencies += "ch.megard" %% "akka-http-cors" % "1.0.0"
+
 resolvers += "Sonatype release repository" at "https://oss.sonatype.org/content/repositories/releases/"
 
 
