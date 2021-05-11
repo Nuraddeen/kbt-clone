@@ -1,4 +1,5 @@
-package ng.itcglobal.kabuto.dms
+package ng.itcglobal.kabuto.core.db.postgres.services
+
 import java.time.LocalDateTime
 import java.util.UUID
 
@@ -8,9 +9,8 @@ case class DocumentMetadata(
   fileNumber: String,
   fileType: String,
   title: String,
-  dateCaptured: LocalDateTime,
-  dateLastUpdated: Option[LocalDateTime],
-  numberOfPages: Int,
+  capturedAt: LocalDateTime,
+  updatedAt: Option[LocalDateTime],
   createdBy: String,
   updatedBy: Option[String]
 )

@@ -1,5 +1,5 @@
-package ng.itcglobal.kabuto.core
-package util
+package ng.itcglobal.kabuto
+package core.util
 
 
 object Enum {
