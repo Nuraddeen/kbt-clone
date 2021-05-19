@@ -1,16 +1,18 @@
 package ng.itcglobal.kabuto.core.util
 
-import com.typesafe.config.{Config, ConfigFactory, ConfigValue}
+import com.typesafe.config.{Config, ConfigFactory}
 
 object Config {
 	lazy val config: Config = ConfigFactory.load()
 	config.checkValid(ConfigFactory.defaultReference)
 
-	val dbUser    = config.getString("kabuto.postgres.user")
-	val dbPasswd  = config.getString("kabuto.postgres.password")
-	val dbName    = config.getString("kabuto.postgres.database")
+	val dbUser:         String  = config.getString("kabuto.postgres.user")
+	val dbPasswd:       String  = config.getString("kabuto.postgres.password")
+	val dbName:         String  = config.getString("kabuto.postgres.database")
 
-	val testDbUser    = config.getString("kabuto.test-postgres.user")
-	val testDbPasswd  = config.getString("kabuto.test-postgres.password")
-	val testDbName    = config.getString("kabuto.test-postgres.database")
+	val testDbUser:     String  = config.getString("kabuto.test-postgres.user")
+	val testDbPasswd:   String  = config.getString("kabuto.test-postgres.password")
+	val testDbName:     String  = config.getString("kabuto.test-postgres.database")
+
+	val filesDirectory: String  = config.getString("kabuto.base-files-directory")
 }
