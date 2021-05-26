@@ -1,17 +1,15 @@
 package ng.itcglobal.kabuto
 package core.db.postgres
 
-import ng.itcglobal.kabuto._
 import core.util.Config
-
 import cats.effect.IO
-import doobie.{ExecutionContexts, Transactor}
+import doobie.{ExecutionContexts, Meta, Transactor}
 import doobie.quill.DoobieContext
-import io.getquill.{MappedEncoding, SnakeCase}
+import io.getquill.{mirrorContextWithQueryProbing, MappedEncoding, SnakeCase, idiom => _}
 
-import java.util.UUID
-//import org.joda.time.{Duration, LocalDateTime}
-import io.getquill.{idiom => _}
+import java.time.{LocalDate, LocalDateTime, LocalTime, ZoneId}
+import java.util.{Date, UUID}
+
 
 trait DatabaseContext {
 
@@ -33,10 +31,27 @@ trait DatabaseContext {
 }
 
 trait EncoderDecoder{
-	implicit val encodeUUID: MappedEncoding[UUID, String] = MappedEncoding[UUID, String](_.toString)
-	implicit val decodeUUID: MappedEncoding[String, UUID] = MappedEncoding[String, UUID](UUID.fromString)
-//	implicit val jodaLocalDateTimeDecoder = MappedEncoding[Date, LocalDateTime](LocalDateTime.fromDateFields)
+	implicit val uuidMeta: Meta[UUID] = Meta[String].timap(UUID.fromString)(_.toString)
+
+	implicit val jodaLocalDateTimeDecoder = mirrorContextWithQueryProbing.MappedEncoding[Date, LocalDateTime](fromDateToLocalDateTime)
+	implicit val jodaLocalDateTimeEncoder = MappedEncoding[LocalDateTime, Date](fromLocalDateTimeToDateTime)
+
 //	implicit val jodaDurationDecoder      = MappedEncoding(Duration.millis)
-//	implicit val jodaLocalDateTimeEncoder = MappedEncoding[LocalDateTime, Date](_.toDate)
 //	implicit val jodaDurationEncoder      = MappedEncoding[Duration, Long](_.getMillis)
+
+//	implicit val jodaDurationEncoder      = MappedEncoding[Duration, Long](_.getMillis)
+//	implicit val jodaDurationDecoder      = MappedEncoding(Duration.millis)
+
+	def fromDateToLocalDateTime(date: Date): LocalDateTime = {
+		val local: LocalDate =
+			date
+				.toInstant
+				.atZone(ZoneId.systemDefault())
+				.toLocalDate;
+
+		LocalDateTime.of(local, LocalTime.now)
+	}
+
+	def fromLocalDateTimeToDateTime(dateTime: LocalDateTime): Date = java.sql.Timestamp.valueOf(dateTime);
+
 }

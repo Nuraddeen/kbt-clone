@@ -67,14 +67,19 @@ lazy val core = (project in file("core")).
       "org.tpolecat" %% "doobie-quill"     % "0.12.1",          // Support for Quill 3.6.1
       "org.tpolecat" %% "doobie-specs2"    % "0.12.1" % "test", // Specs2 support for typechecking statements.
       "org.tpolecat" %% "doobie-scalatest" % "0.12.1" % "test"  // ScalaTest support for typechecking statements.
-    )
+    ),
+
+    libraryDependencies ++= Seq(
+      "io.circe" %% "circe-core",
+      "io.circe" %% "circe-generic",
+      "io.circe" %% "circe-parser"
+    ).map(_ % circeVersion)
+
   )
 
 libraryDependencies += "ch.megard" %% "akka-http-cors" % "1.0.0"
 
 resolvers += "Sonatype release repository" at "https://oss.sonatype.org/content/repositories/releases/"
-
-
 
 scalacOptions in Compile ++= Seq("-deprecation", "-feature", "-unchecked", "-Xlog-reflective-calls", "-Xlint")
 
