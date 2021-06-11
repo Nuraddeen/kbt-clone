@@ -36,11 +36,11 @@ object FileManagerService {
      filename: String,
      fileString: String,
      filePath: String,
-     documentMetadata: DocumentMetadata,
      replyTo: ActorRef[FileResponse]) extends FileCommand
 
   final case class GetFileByPath(dirPath: String, replyTo: ActorRef[FileResponse]) extends FileCommand
   final case class SplitSingleTiffFile(tif: String, outputDir: String, replyTo: ActorRef[FileResponse]) extends FileCommand
+  final case class GetSinglePageFromFile(filePath: String, replyTo: ActorRef[FileResponse]) extends FileCommand
 
   sealed trait FileResponse
   final case object FileProcessOK extends FileResponse
@@ -65,26 +65,24 @@ object FileManagerService {
                     case Enum.ImageTypes.Tiff =>
                       val newFile = File(req.filePath + req.filename + "." + Enum.ImageTypes.Tiff)
                       newFile.writeBytes(bytes.iterator)
-
-                      // We process the metadata here
-                      val documentMetadataDbService = context.spawn(DocumentMetadataDbService(), "document-metadata-db-service")
-                      documentMetadataDbService.ask(SaveDocument(req.documentMetadata, _)) onComplete {
-                        case Success(value) =>
-                          req.replyTo ! FileProcessOK
-                        case Failure(exception) =>
-                          req.replyTo ! FileResponseError(s"Unable to save the file ${exception.toString}")
-                      }
-
-                    case _ => req.replyTo ! FileResponseError(s"invalid file format $x")
+                      req.replyTo ! FileProcessOK
+                    case _ => 
+                      println(s"\n\nInvalid file format $x\n")
+                      req.replyTo ! FileResponseError(s"invalid file format $x")
 
                   }
-                case None => req.replyTo ! FileResponseError(s"unknown file format")
+                case None =>
+                  println(s"\n\nunknown file format\n")
+                  req.replyTo ! FileResponseError(s"unknown file format")
               }
 
-            case Failure(er) => req.replyTo ! FileResponseError(s"could not write file ${er.getMessage}")
+            case Failure(er) => 
+              println(s"\n\ncould not write file $er\n")
+              req.replyTo ! FileResponseError(s"could not write file $er")
           }
           Behaviors.same
         } else {
+          println(s"\n\ninvalid file directory\n")
           req.replyTo ! FileResponseError("invalid file directory")
           Behaviors.same
         }
@@ -113,7 +111,20 @@ object FileManagerService {
           case Failure(er) => req.replyTo ! FileResponseError(s"Error while saving file to dir ${er.getMessage}")
             Behaviors.same
         }
+
+      case GetSinglePageFromFile(filePath, replyTo) =>
+        val fileDir = File(filePath)
+        
+        if(fileDir.isEmpty)
+          replyTo ! FileResponseError(s"File doesn't exists: $filePath")
+        else{
+          val byte = Base64.getEncoder.encodeToString(resizeTiff(fileDir))
+          replyTo ! FileSearchResponse(List(byte))
+        }
+
+        Behaviors.same
       }
+
     }
 
   /**

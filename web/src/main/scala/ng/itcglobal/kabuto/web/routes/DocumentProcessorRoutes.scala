@@ -22,46 +22,55 @@ class DocumentProcessorRoutes(documentProcessorService: ActorRef[DocumentProcess
 
   import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
   import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-  implicit val timeout: Timeout = 3.seconds
+  implicit val timeout: Timeout = 10.seconds
 
   lazy val documentMetadataRoutes: Route = {
     pathPrefix("documents") {
-      path(Segment) { docId =>
-        concat(
+      concat(
+        path(Segment) { docId =>          
           get {
             val futRes: Future[DocumentProcessorService.ProcessDocumentResponse] =
               documentProcessorService.ask(DocumentProcessorService.GetDocument(docId, _))
-            onComplete(futRes) {
-              case Success(document) =>
-                complete(document)
-              case Failure(exception) =>
-                complete(StatusCodes.NotFound -> s"unable to complete the request $exception")
-            }
-          },
-          post {
-            entity(as[DocumentProcessorService.Document]) { doc =>
-
-              val futRes: Future[DocumentProcessorService.ProcessDocumentResponse] =
-                documentProcessorService.ask(DocumentProcessorService.AddDocument(doc, _))
-
+            
               onComplete(futRes) {
-                case Success(result) =>
-                  result match {
-                    case DocumentProcessed(value) =>
-                      complete(value)
+                case Success(document) =>
+                  document match {
+                    case DocumentProcessorService.GetDocumentResponse(doc) =>
+                      complete(doc)
                     case DocumentProcessingFailed(reason) =>
                       complete(StatusCodes.NotFound -> reason)
                     case _ =>
-                      complete(StatusCodes.InternalServerError -> "Unknown error!")
+                      complete(StatusCodes.InternalServerError -> "unknown error")
                   }
+                  complete(document)
                 case Failure(exception) =>
-                  complete(StatusCodes.NotFound -> s"unable to complete the request $exception")
-              }
+                  failWith(exception)
+                  // complete(StatusCodes.NotFound -> s"unable to complete the request ${exception}")
             }
           }
-        )
-      }
-    }
+        },
+        post {
+          entity(as[DocumentProcessorService.Document]) { doc =>
 
+            val futRes: Future[DocumentProcessorService.ProcessDocumentResponse] =
+              documentProcessorService.ask(DocumentProcessorService.AddDocument(doc, _))
+
+            onComplete(futRes) {
+              case Success(result) =>
+                result match {
+                  case DocumentProcessed(value) =>
+                    complete(value)
+                  case DocumentProcessingFailed(reason) =>
+                    complete(StatusCodes.BadRequest -> reason)
+                  case _ =>
+                    complete(StatusCodes.InternalServerError -> "Unknown error!")
+                }
+              case Failure(exception) =>
+                complete(StatusCodes.NotFound -> s"unable to complete the request $exception")
+            }
+          }
+        }
+      )
+    }
   }
 }

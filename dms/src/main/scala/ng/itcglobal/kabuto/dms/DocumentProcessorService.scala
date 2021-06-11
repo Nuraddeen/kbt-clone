@@ -7,8 +7,8 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.util.Timeout
 import ng.itcglobal.kabuto._
 import core.db.postgres.services.{DocumentMetadata, DocumentMetadataDbService, DocumentMetadataDto}
-import core.db.postgres.services.DocumentMetadataDbService.{FileMetaRetrieved, RetrieveDocument, SaveDocument}
-import dms.FileManagerService.{AppendFileToDir, FileSearchResponse}
+import core.db.postgres.services.DocumentMetadataDbService._
+import dms.FileManagerService._
 
 import java.util.{Base64, UUID}
 import scala.concurrent.{ExecutionContext, Future}
@@ -57,92 +57,118 @@ object DocumentProcessorService {
           val appendFileCommand = AppendFileToDir(
             fileId.toString,
             req.document.fileString,
-            metadata.filePath,
+            req.document.filePath,
             _
           )
-          val saveMetadataCommand = SaveDocument(metadata, _)
 
           val futFileResult = fileManagerServiceActor.ask(appendFileCommand)
-          val futMetaResult = documentMetadataDbServiceActor.ask(saveMetadataCommand)
+          val futMetaResult = documentMetadataDbServiceActor.ask(SaveDocument(metadata, _))
 
-          // should use for comprehension
-
-          futFileResult.onComplete {
-            case Success(_) =>
-              futMetaResult.onComplete {
-                case Success(fileMetaResponse) =>
-                  fileMetaResponse match {
-                    case DocumentMetadataDbService.FileMetaSavedSuccessfully(documentId) =>
-                      req.replyTo ! DocumentProcessed(documentId)
-                    case failure: DocumentMetadataDbService.FileMetaFailureResponse =>
-                      req.replyTo ! DocumentProcessingFailed(failure.reason)
-                  }
-                case Failure(exception) =>
-                  req.replyTo ! DocumentProcessingFailed(s"File meta saved successfully, but physical file failed with: ${exception.toString}")
-              }
-
-            case Failure(exception) =>
-              req.replyTo ! DocumentProcessingFailed(s"Unable to process physical (and also aborting meta data processing as well), file failed with: ${exception.toString}")
+          for {
+            fileResponse <- futFileResult
+            metaResponse <- futMetaResult
+          } yield (fileResponse, metaResponse) match {
+            case (FileProcessOK, FileMetaSavedSuccessfully(documentId)) =>
+              req.replyTo ! DocumentProcessed(documentId)
+            case _ =>
+              req.replyTo ! DocumentProcessingFailed(s"unable to process file ${req.document.fileNumber}")
           }
 
           Behaviors.same
 
         case GetDocument(filePath, replyTo) =>
+          val fileId = UUID.fromString(filePath.split("/").last)
+          
           val futFile: Future[FileManagerService.FileResponse] =
             fileManagerServiceActor.ask(FileManagerService.GetFileByPath(filePath, _))
-
-          val fileId = UUID.fromString(filePath.split("/").last)
 
           val futMeta: Future[DocumentMetadataDbService.FileMetaResponse] =
             documentMetadataDbServiceActor.ask(RetrieveDocument(fileId,_))
 
-          futFile onComplete {
-            case Success(response) =>
-              response match {
-                case FileSearchResponse(fileString) =>
-                  futMeta onComplete {
-                    case Success(mRes) =>
-                      mRes match {
-                        case FileMetaRetrieved(meta) =>
-                          val doc = Document(
-                              fileString.head,
-                              meta.filePath,
-                              meta.fileNumber,
-                              meta.title,
-                              meta.updatedBy.getOrElse("")
+          // get the meta from db
+          // use the meta file path to fetch the physical
+
+          // futFile onComplete {
+          //   case Success(response) =>
+          //     response match {
+          //       case FileSearchResponse(fileString) =>
+          //         futMeta onComplete {
+          //           case Success(mRes) =>
+          //             mRes match {
+          //               case FileMetaRetrieved(meta) =>
+          //                 val doc = Document(
+          //                     fileString.head,
+          //                     meta.filePath,
+          //                     meta.fileNumber,
+          //                     meta.title,
+          //                     meta.updatedBy.getOrElse("")
+          //                 )
+
+          //                 replyTo ! GetDocumentResponse(doc)
+          //               case _ =>
+          //                 replyTo ! DocumentProcessingFailed(filePath)
+          //             }
+          //           case Failure(err) =>
+          //             replyTo ! DocumentProcessingFailed(err.toString)
+          //         }
+          //       case _ =>
+          //         replyTo ! DocumentProcessingFailed(filePath)
+          //     }
+          //   case Failure(err) =>
+          //     replyTo ! DocumentProcessingFailed(err.toString)
+          // }
+
+          documentMetadataDbServiceActor.ask(RetrieveDocument(fileId,_)) onComplete {
+            case Success(metaResponse) =>
+              metaResponse match {
+                case FileMetaRetrieved(fileMeta) => 
+                  fileManagerServiceActor.ask(FileManagerService.GetSinglePageFromFile(fileMeta.filePath + ".tiff", _)) onComplete {
+                    case Success(value) =>
+                      value match {
+                        case FileSearchResponse(files) =>
+                          val document = Document(
+                            files.head,
+                            fileMeta.filePath,
+                            fileMeta.fileNumber,
+                            fileMeta.title,
+                            fileMeta.updatedBy.getOrElse("")
                           )
-
-                          replyTo ! GetDocumentResponse(doc)
-                        case _ =>
-                          replyTo ! DocumentProcessingFailed(filePath)
+                          replyTo ! GetDocumentResponse(document)
+                        case FileResponseError(msg) =>
+                          replyTo ! DocumentProcessingFailed(msg)
+                        case _  =>
+                          replyTo ! DocumentProcessingFailed(s"Unkown error happend, please try again later.")
                       }
-                    case Failure(err) =>
-                      replyTo ! DocumentProcessingFailed(err.toString)
+                    case Failure(exception) =>
+                      replyTo ! DocumentProcessingFailed(exception.toString)
                   }
+                case FileMetaFailureResponse(failure) =>
+                  replyTo ! DocumentProcessingFailed(failure)
                 case _ =>
-                  replyTo ! DocumentProcessingFailed(filePath)
+                  replyTo ! DocumentProcessingFailed(s"Unknown error happened, please try again later.")
               }
-            case Failure(err) =>
-              replyTo ! DocumentProcessingFailed(err.toString)
+
+            case Failure(exception) =>
+              replyTo ! DocumentProcessingFailed(exception.toString)
           }
 
-          for {
-            fileResponse <- futFile
-            metaResponse <- futMeta
-          } yield (fileResponse, metaResponse) match {
-            case (FileSearchResponse(file), FileMetaRetrieved(meta)) =>
-              replyTo ! GetDocumentResponse(
-                  Document(
-                    file.head,
-                    meta.filePath,
-                    meta.fileNumber,
-                    meta.title,
-                    meta.updatedBy.getOrElse("")
-                  )
-                )
-            case _ =>
-              replyTo ! DocumentProcessingFailed(filePath)
-          }
+          // for {
+          //   fileResponse <- futFile
+          //   metaResponse <- futMeta
+          // } yield (fileResponse, metaResponse) match {
+          //   case (FileSearchResponse(file), FileMetaRetrieved(meta)) =>
+          //     replyTo ! GetDocumentResponse(
+          //         Document(
+          //           file.head,
+          //           meta.filePath,
+          //           meta.fileNumber,
+          //           meta.title,
+          //           meta.updatedBy.getOrElse("")
+          //         )
+          //       )
+          //   case _ =>
+          //     replyTo ! DocumentProcessingFailed("unable to retrieve file at the moment")
+          // }
 
           Behaviors.same
       }
