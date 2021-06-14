@@ -67,7 +67,6 @@ object FileManagerService {
                       newFile.writeBytes(bytes.iterator)
                       req.replyTo ! FileProcessOK
                     case _ => 
-                      println(s"\n\nInvalid file format $x\n")
                       req.replyTo ! FileResponseError(s"invalid file format $x")
 
                   }

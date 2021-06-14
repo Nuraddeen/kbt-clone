@@ -9,12 +9,12 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.RouteConcatenation.concat
 
-
 import ng.itcglobal.kabuto._
 import dms.DocumentProcessorService
 import dms.FileManagerService
 import core.db.postgres.services.DocumentMetadataDbService
 import web.routes.DocumentProcessorRoutes
+import core.util.Config
 
 object Server {
 
@@ -78,6 +78,6 @@ object Server {
 
 
 def main(args: Array[String]): Unit = {
-   ActorSystem(Server.apply("localhost", 8090), "BuildJobsServer")
+   ActorSystem(Server.apply(Config.applicationIpAddress, Config.applicationPortNumber), "BuildJobsServer")
  }
 }
