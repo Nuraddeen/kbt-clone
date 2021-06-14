@@ -26,7 +26,7 @@ case class DocumentMetadataDto(
 ) {
 	def toDocumentMetadata(id: UUID): DocumentMetadata = DocumentMetadata(
 		id,
-		filePath = s"${Config.filesDirectory}$fileNumber/${id.toString}",
+		filePath = s"${Config.filesDirectory}/${id.toString}",
 		fileNumber,
 		fileType = "",
 		title,

@@ -1,4 +1,5 @@
--- CREATE DATABASE kabuto_db;
+CREATE DATABASE kabuto_db;
+\c kabuto_db
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE IF NOT EXISTS document_metadata

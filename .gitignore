@@ -5,3 +5,5 @@ target/
 .metals/
 .vscode/
 metals.sbt
+**/metals.sbt
+project/project/
