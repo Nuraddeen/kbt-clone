@@ -1,4 +1,5 @@
-package ng.itcglobal.kabuto.web
+package ng.itcglobal.kabuto
+package web
 
 import scala.util.{Failure, Success}
 
@@ -82,6 +83,6 @@ object Server {
 
 
 def main(args: Array[String]): Unit = {
-  val system: ActorSystem[Server.Message] = ActorSystem(Server.apply("localhost", 8090), "BuildJobsServer")
+   ActorSystem(Server.apply("localhost", 8090), "BuildJobsServer")
  }
 }
