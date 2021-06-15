@@ -16,5 +16,5 @@ object Config {
 	val applicationIpAddress    = config.getString("kabuto.ip")
   val applicationPortNumber   = config.getInt("kabuto.port")
 
-	val filesDirectory: String  = config.getString("kabuto.base-files-directory")
+	val filesDirectory: String  = config.getString("kabuto.files-directory")
 }

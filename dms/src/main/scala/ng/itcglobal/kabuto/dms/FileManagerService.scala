@@ -19,10 +19,9 @@ import com.sksamuel.scrimage.nio.JpegWriter
 import com.twelvemonkeys.contrib.tiff.TIFFUtilities
 
 import ng.itcglobal.kabuto._
-import ng.itcglobal.kabuto.core.db.postgres.services.{DocumentMetadata, DocumentMetadataDbService}
-import ng.itcglobal.kabuto.core.db.postgres.services.DocumentMetadataDbService.SaveDocument
-import ng.itcglobal.kabuto.core.util.Enum
-
+import core.db.postgres.services.{DocumentMetadata, DocumentMetadataDbService}
+import core.db.postgres.services.DocumentMetadataDbService.SaveDocument
+import core.util.Enum
 
 /**
  * manager of file IO operation for the kabuto
@@ -48,6 +47,7 @@ object FileManagerService {
   final case class FileSearchResponse(dir: List[String]) extends FileResponse
 
   def apply(): Behavior[FileCommand] = Behaviors.receive { (context, message) =>
+    val log = context.log
     implicit val scheduler: Scheduler = context.system.scheduler
     implicit val executionContext: ExecutionContextExecutor = context.executionContext
 
@@ -71,17 +71,17 @@ object FileManagerService {
 
                   }
                 case None =>
-                  println(s"\n\nunknown file format\n")
+                  log.error("unknown file format")
                   req.replyTo ! FileResponseError(s"unknown file format")
               }
 
             case Failure(er) => 
-              println(s"\n\ncould not write file $er\n")
+              log.error(s"could not write file $er")
               req.replyTo ! FileResponseError(s"could not write file $er")
           }
           Behaviors.same
         } else {
-          println(s"\n\ninvalid file directory\n")
+          log.error(s"invalid file directory", req.filePath)
           req.replyTo ! FileResponseError("invalid file directory")
           Behaviors.same
         }

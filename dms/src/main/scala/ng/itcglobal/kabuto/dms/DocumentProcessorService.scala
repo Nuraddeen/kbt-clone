@@ -1,19 +1,21 @@
 package ng.itcglobal.kabuto
 package dms
 
+import java.util.{Base64, UUID}
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
+import scala.util.{Failure, Success}
+
 import akka.actor.typed.{ActorRef, Behavior, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern.Askable
 import akka.actor.typed.scaladsl.Behaviors
 import akka.util.Timeout
+
 import ng.itcglobal.kabuto._
 import core.db.postgres.services.{DocumentMetadata, DocumentMetadataDbService, DocumentMetadataDto}
 import core.db.postgres.services.DocumentMetadataDbService._
 import dms.FileManagerService._
-
-import java.util.{Base64, UUID}
-import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.DurationInt
-import scala.util.{Failure, Success}
 
 object DocumentProcessorService {
   case class Document(
@@ -36,8 +38,8 @@ object DocumentProcessorService {
   implicit val timeout: Timeout = 3.seconds
 
   def apply(
-             documentMetadataDbServiceActor: ActorRef[DocumentMetadataDbService.MetaCommand],
-             fileManagerServiceActor: ActorRef[FileManagerService.FileCommand]
+    documentMetadataDbServiceActor: ActorRef[DocumentMetadataDbService.MetaCommand],
+    fileManagerServiceActor: ActorRef[FileManagerService.FileCommand]
   ): Behavior[ProcessDocumentCommand] =
     Behaviors.receive { (context, message) =>
       implicit val ec: ExecutionContext = context.executionContext
@@ -49,9 +51,9 @@ object DocumentProcessorService {
 
           val metadata: DocumentMetadata =
             DocumentMetadataDto(
-              fileNumber = req.document.fileNumber,
-              title = req.document.title,
-              updatedBy = req.document.updatedBy
+              fileNumber  = req.document.fileNumber,
+              title       = req.document.title,
+              updatedBy   = req.document.updatedBy
             ).toDocumentMetadata(fileId)
 
           val appendFileCommand = AppendFileToDir(
@@ -84,39 +86,6 @@ object DocumentProcessorService {
 
           val futMeta: Future[DocumentMetadataDbService.FileMetaResponse] =
             documentMetadataDbServiceActor.ask(RetrieveDocument(fileId,_))
-
-          // get the meta from db
-          // use the meta file path to fetch the physical
-
-          // futFile onComplete {
-          //   case Success(response) =>
-          //     response match {
-          //       case FileSearchResponse(fileString) =>
-          //         futMeta onComplete {
-          //           case Success(mRes) =>
-          //             mRes match {
-          //               case FileMetaRetrieved(meta) =>
-          //                 val doc = Document(
-          //                     fileString.head,
-          //                     meta.filePath,
-          //                     meta.fileNumber,
-          //                     meta.title,
-          //                     meta.updatedBy.getOrElse("")
-          //                 )
-
-          //                 replyTo ! GetDocumentResponse(doc)
-          //               case _ =>
-          //                 replyTo ! DocumentProcessingFailed(filePath)
-          //             }
-          //           case Failure(err) =>
-          //             replyTo ! DocumentProcessingFailed(err.toString)
-          //         }
-          //       case _ =>
-          //         replyTo ! DocumentProcessingFailed(filePath)
-          //     }
-          //   case Failure(err) =>
-          //     replyTo ! DocumentProcessingFailed(err.toString)
-          // }
 
           documentMetadataDbServiceActor.ask(RetrieveDocument(fileId,_)) onComplete {
             case Success(metaResponse) =>
@@ -151,24 +120,6 @@ object DocumentProcessorService {
             case Failure(exception) =>
               replyTo ! DocumentProcessingFailed(exception.toString)
           }
-
-          // for {
-          //   fileResponse <- futFile
-          //   metaResponse <- futMeta
-          // } yield (fileResponse, metaResponse) match {
-          //   case (FileSearchResponse(file), FileMetaRetrieved(meta)) =>
-          //     replyTo ! GetDocumentResponse(
-          //         Document(
-          //           file.head,
-          //           meta.filePath,
-          //           meta.fileNumber,
-          //           meta.title,
-          //           meta.updatedBy.getOrElse("")
-          //         )
-          //       )
-          //   case _ =>
-          //     replyTo ! DocumentProcessingFailed("unable to retrieve file at the moment")
-          // }
 
           Behaviors.same
       }

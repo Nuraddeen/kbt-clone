@@ -1,16 +1,19 @@
 package ng.itcglobal.kabuto
 package core.db.postgres.services
 
+import java.time.LocalDateTime
+import java.util.UUID
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
+
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
+
 import ng.itcglobal.kabuto._
 import core.db.postgres.DatabaseContext
 
-import java.time.LocalDateTime
-import java.util.UUID
 
 object DocumentMetadataDbService extends DatabaseContext {
   import doobie.implicits._
