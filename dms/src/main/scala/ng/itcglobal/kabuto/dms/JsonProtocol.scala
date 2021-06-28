@@ -7,9 +7,7 @@ import spray.json.JsString
 import spray.json.JsValue
 import spray.json.RootJsonFormat
 
-trait JsonSupport extends SprayJsonSupport {
-  // import the default encoders for primitive types (Int, String, Lists etc)
-  import DefaultJsonProtocol._
+trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   import JobRepository._
 
   implicit object StatusFormat extends RootJsonFormat[Status] {

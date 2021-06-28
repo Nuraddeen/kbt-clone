@@ -10,10 +10,9 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.RouteConcatenation.concat
 
 import ng.itcglobal.kabuto._
-import dms.DocumentProcessorService
 import dms.FileManagerService
 import core.db.postgres.services.DocumentMetadataDbService
-import web.routes.DocumentProcessorRoutes
+import web.routes.ApplicationProcessorRoutes
 import core.util.Config
 
 object Server {
@@ -29,9 +28,7 @@ object Server {
 
     val fileManagerService        = ctx.spawn(FileManagerService(), "fileManagerServiceActor")
     val metadataService           = ctx.spawn(DocumentMetadataDbService(), "metadataServiceActor")
-    val documentProcessorService  = ctx.spawn(DocumentProcessorService(metadataService, fileManagerService), "documentProcessingService")
-    
-    val documentProcessorRoute  = new DocumentProcessorRoutes(documentProcessorService).documentMetadataRoutes
+    val documentProcessorRoute    = new ApplicationProcessorRoutes(fileManagerService).documentMetadataRoutes
 
     val route = concat(
       documentProcessorRoute

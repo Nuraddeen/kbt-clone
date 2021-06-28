@@ -1,4 +1,5 @@
-package ng.itcglobal.kabuto.dms
+package ng.itcglobal.kabuto
+package dms
 
 import java.io.{File => JFile}
 import java.util.Base64
@@ -21,7 +22,8 @@ import com.twelvemonkeys.contrib.tiff.TIFFUtilities
 import ng.itcglobal.kabuto._
 import core.db.postgres.services.{DocumentMetadata, DocumentMetadataDbService}
 import core.db.postgres.services.DocumentMetadataDbService.SaveDocument
-import core.util.Enum
+import core.util.{Config, Enum}
+
 
 /**
  * manager of file IO operation for the kabuto
@@ -37,19 +39,47 @@ object FileManagerService {
      filePath: String,
      replyTo: ActorRef[FileResponse]) extends FileCommand
 
-  final case class GetFileByPath(dirPath: String, replyTo: ActorRef[FileResponse]) extends FileCommand
+  final case class GetAllDirectories(replyTo: ActorRef[FileResponse]) extends FileCommand
+  final case class GetFilesByPath(dirPath: String, replyTo: ActorRef[FileResponse]) extends FileCommand
   final case class SplitSingleTiffFile(tif: String, outputDir: String, replyTo: ActorRef[FileResponse]) extends FileCommand
-  final case class GetSinglePageFromFile(filePath: String, replyTo: ActorRef[FileResponse]) extends FileCommand
+  final case class GetSingleDocumentFromApplication(filePath: String, replyTo: ActorRef[FileResponse]) extends FileCommand
 
   sealed trait FileResponse
   final case object FileProcessOK extends FileResponse
   final case class FileResponseError(msg: String) extends FileResponse
   final case class FileSearchResponse(dir: List[String]) extends FileResponse
+  final case class SingleFileSearchResponse(fileName: String) extends FileResponse
+
+  private def getApplicationDirectories(path: String): Try[List[String]] = Try {
+    val fileDir = File(path)
+
+    if(fileDir.isDirectory)
+      fileDir
+        .children
+        .filter(_.isDirectory)
+        .map(_.name)
+        .toList
+    else
+      List[String]()
+  }
+
+  private def getFilesByDirectory(path: String): Try[List[String]] = Try {
+    val fileDir = File(path)
+
+    if(fileDir.isDirectory)
+      fileDir
+        .children
+        .filter(!_.isDirectory)
+        .map(child => {
+          Base64.getEncoder.encodeToString(resizeTiff(child))
+        })
+        .toList
+    else
+      List[String]()
+  }
 
   def apply(): Behavior[FileCommand] = Behaviors.receive { (context, message) =>
     val log = context.log
-    implicit val scheduler: Scheduler = context.system.scheduler
-    implicit val executionContext: ExecutionContextExecutor = context.executionContext
 
     message match {
       case req: AppendFileToDir =>
@@ -86,21 +116,28 @@ object FileManagerService {
           Behaviors.same
         }
 
-      case req: GetFileByPath =>
-        val fileDir = File(req.dirPath)
-        fileDir.isDirectory match {
-          case true =>
-
-            val bytes = fileDir.list.toList.map { tif: File =>
-              val byte = resizeTiff(tif)
-              Base64.getEncoder.encodeToString(byte)
-            }
-            req.replyTo ! FileSearchResponse(bytes)
-            Behaviors.same
-          case false =>
-            req.replyTo ! FileSearchResponse(List[String]().empty)
-            Behaviors.same
+      case req: GetAllDirectories =>
+        val defaultFilesPath = Config.filesDirectory
+        
+        // FileManger get the list of all dirs from default location
+        getApplicationDirectories(defaultFilesPath) match {
+          case Success(files) => req.replyTo ! FileSearchResponse(files)
+          case Failure(error) => 
+            println(s"$error,\n")
+            req.replyTo ! FileResponseError(error.toString)
         }
+        
+        Behaviors.same
+
+      case req: GetFilesByPath =>
+        val filePath = Config.filesDirectory + req.dirPath
+
+        getFilesByDirectory(filePath) match {
+          case Success(files) => req.replyTo ! FileSearchResponse(files)
+          case Failure(error) => req.replyTo ! FileResponseError(error.toString)
+        }
+
+        Behaviors.same
 
       case req: SplitSingleTiffFile =>
         mkdir(File(req.outputDir))
@@ -111,27 +148,27 @@ object FileManagerService {
             Behaviors.same
         }
 
-      case GetSinglePageFromFile(filePath, replyTo) =>
-        val fileDir = File(filePath)
+      case req: GetSingleDocumentFromApplication =>
+        val fileDir = File(req.filePath)
         
-        if(fileDir.isEmpty)
-          replyTo ! FileResponseError(s"File doesn't exists: $filePath")
+        if(fileDir.notExists || fileDir.isDirectory)
+          req.replyTo ! FileResponseError(s"file '${req.filePath}' does not exists")
         else{
           val byte = Base64.getEncoder.encodeToString(resizeTiff(fileDir))
-          replyTo ! FileSearchResponse(List(byte))
+          req.replyTo ! SingleFileSearchResponse(byte)
         }
 
         Behaviors.same
-      }
-
     }
+
+  }
 
   /**
    * resize a tif single tif file to jpeg format in byte arrays
    * @param tif
    * @return
    */
-   def resizeTiff(tif: File): Array[Byte] = {
+  def resizeTiff(tif: File): Array[Byte] = {
     val image   = ImmutableImage.loader().fromBytes(tif.byteArray)
     val resized = image.scale(0.5)
     resized.bytes(new JpegWriter().withCompression(50).withProgressive(true))
@@ -139,13 +176,15 @@ object FileManagerService {
 
   def getImageExtension(stringImage: String): Option[Enum.ImageTypes.Value] = {
     import Enum._
-       stringImage.charAt(0) match {
-         case 'i'             => Some(ImageTypes.Png)
-         case x @ ('S' | 'T') => Some(ImageTypes.Tiff)
-         case 'R'             => Some(ImageTypes.Gif)
-         case 'U'             => Some(ImageTypes.Webp)
-         case 'Q'             => Some(ImageTypes.Bmp)
-         case _               => None
-       }
+    
+    stringImage.charAt(0) match {
+      case 'i'             => Some(ImageTypes.Png)
+      case x @ ('S' | 'T') => Some(ImageTypes.Tiff)
+      case 'R'             => Some(ImageTypes.Gif)
+      case 'U'             => Some(ImageTypes.Webp)
+      case 'Q'             => Some(ImageTypes.Bmp)
+      case _               => None
     }
+  }
+
 }
