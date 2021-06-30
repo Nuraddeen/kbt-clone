@@ -22,55 +22,27 @@ class ApplicationProcessorRoutes(fileMangerService: ActorRef[FileManagerService.
 
   lazy val documentMetadataRoutes: Route = {
     concat(  
-      // pathPrefix("documents") {
-      // concat(
-      //   path(Segment) { docId =>          
-      //     get {
-      //       val futRes: Future[ApplicationProcessorService.ProcessDocumentResponse] =
-      //         documentProcessorService.ask(ApplicationProcessorService.GetDocument(docId, _))
-            
-      //         onComplete(futRes) {
-      //           case Success(document) =>
-      //             document match {
-      //               case ApplicationProcessorService.GetDocumentResponse(doc) =>
-      //                 complete(doc)
-      //               case DocumentProcessingFailed(reason) =>
-      //                 complete(StatusCodes.NotFound -> reason)
-      //               case _ =>
-      //                 complete(StatusCodes.InternalServerError -> "unknown error")
-      //             }
-      //             complete(document)
-      //           case Failure(exception) =>
-      //             failWith(exception)
-      //             // complete(StatusCodes.NotFound -> s"unable to complete the request ${exception}")
-      //       }
-      //     }
-      //   },
-        // post {
-        //   entity(as[ApplicationProcessorService.Document]) { doc =>
-
-        //     val futRes: Future[ApplicationProcessorService.ProcessDocumentResponse] =
-        //       documentProcessorService.ask(ApplicationProcessorService.AddDocument(doc, _))
-
-        //     onComplete(futRes) {
-        //       case Success(result) =>
-        //         result match {
-        //           case DocumentProcessed(value) =>
-        //             complete(value)
-        //           case DocumentProcessingFailed(reason) =>
-        //             complete(StatusCodes.BadRequest -> reason)
-        //           case _ =>
-        //             complete(StatusCodes.InternalServerError -> "Unknown error!")
-        //         }
-        //       case Failure(exception) =>
-        //         complete(StatusCodes.NotFound -> s"unable to complete the request $exception")
-        //     }
-        //   }
-        // }
-      // )
-      // },
       pathPrefix("applications") {
         concat(
+          path(Segment / Segment) { (applicationId: String, documentName: String) =>
+            get {
+              val futFileResponse: Future[FileManagerService.FileResponse] = fileMangerService
+                .ask(FileManagerService.GetSingleDocumentFromApplication(s"$applicationId/$documentName", _))
+
+              onComplete(futFileResponse) {
+                case Success(fileResponse) =>
+                  fileResponse match {
+                    case FileManagerService.SingleFileSearchResponse(documentImage) =>
+                      complete(documentImage)
+                    case FileManagerService.FileResponseError(errors) =>
+                      complete(StatusCodes.InternalServerError -> s"$errors")
+                    case _                                            =>
+                      failWith(new Exception("unkwon error happened."))
+                  }
+                case Failure(error) => failWith(error)
+              }
+            }
+          },
           path(Segment) { applicationId: String =>
             get {
               val futFileResponse: Future[FileManagerService.FileResponse] = fileMangerService.ask(FileManagerService.GetFilesByPath(applicationId, _))

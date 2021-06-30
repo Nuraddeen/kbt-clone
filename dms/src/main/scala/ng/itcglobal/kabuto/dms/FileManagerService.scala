@@ -75,6 +75,7 @@ object FileManagerService {
 
   def apply(): Behavior[FileCommand] = Behaviors.receive { (context, message) =>
     val log = context.log
+    val baseDirectory = Config.filesDirectory
 
     message match {
       case req: AppendFileToDir =>
@@ -125,9 +126,7 @@ object FileManagerService {
         Behaviors.same
 
       case req: GetFilesByPath =>
-        val filePath = Config.filesDirectory + req.dirPath
-
-        getFilesByDirectory(filePath) match {
+        getFilesByDirectory(baseDirectory + req.dirPath) match {
           case Success(files) => req.replyTo ! FileSearchResponse(files)
           case Failure(error) => req.replyTo ! FileResponseError(error.toString)
         }
@@ -144,13 +143,13 @@ object FileManagerService {
         }
 
       case req: GetSingleDocumentFromApplication =>
-        val fileDir = File(req.filePath)
+        val document = File(baseDirectory + req.filePath)
         
-        if(fileDir.notExists || fileDir.isDirectory)
-          req.replyTo ! FileResponseError(s"file '${req.filePath}' does not exists")
+        if(document.notExists || document.isDirectory)
+          req.replyTo ! FileResponseError(s"document '${req.filePath}' does not exists")
         else{
-          val byte = Base64.getEncoder.encodeToString(resizeTiff(fileDir))
-          req.replyTo ! SingleFileSearchResponse(byte)
+          val documentImage = Base64.getEncoder.encodeToString(resizeTiff(document))
+          req.replyTo ! SingleFileSearchResponse(documentImage)
         }
 
         Behaviors.same
