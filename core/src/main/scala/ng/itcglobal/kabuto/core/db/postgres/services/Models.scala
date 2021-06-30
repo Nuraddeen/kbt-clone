@@ -5,7 +5,7 @@ import java.time.Instant
 import java.util.UUID
 
 object Models {
-  case class Application (
+  case class Document (
     documentId:     UUID,
     fileNumber:     String,
     applicantName:  String,

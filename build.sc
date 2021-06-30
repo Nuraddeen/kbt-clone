@@ -93,7 +93,7 @@ object dms extends SharedModule{
     )
     def testFrameworks = Seq("org.scalatest.tools.Framework")
 
-   def testOnly(args: String*) = T.command {
+   def testOnly(args: List[String]) = T.command {
       super.runMain("org.scalatest.run", args: _*)
     }
   }

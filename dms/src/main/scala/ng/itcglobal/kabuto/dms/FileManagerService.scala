@@ -20,8 +20,6 @@ import com.sksamuel.scrimage.nio.JpegWriter
 import com.twelvemonkeys.contrib.tiff.TIFFUtilities
 
 import ng.itcglobal.kabuto._
-import core.db.postgres.services.{DocumentMetadata, DocumentMetadataDbService}
-import core.db.postgres.services.DocumentMetadataDbService.SaveDocument
 import core.util.{Config, Enum}
 
 
