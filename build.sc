@@ -23,7 +23,6 @@ object core extends SharedModule  {
 
 lazy val akkaHttpVersion = "10.2.2"
 lazy val akkaVersion     = "2.6.10"
-lazy val circeVersion    = "0.14.0-M2"
 lazy val doobieVersion   = "0.12.1"
   
   def ivyDeps = Agg(
@@ -50,14 +49,6 @@ lazy val doobieVersion   = "0.12.1"
       ivy"org.tpolecat::doobie-hikari:0.12.1",          // HikariCP transactor.
       ivy"org.tpolecat::doobie-postgres:0.12.1",          // Postgres driver 42.2.19 + type mappings.
       ivy"org.tpolecat::doobie-quill:0.12.1",          // Support for Quill 3.6.1
-  //    ivy"org.tpolecat::doobie-specs2:0.12.1:test", // Specs2 support for typechecking statements.
-  //    ivy"org.tpolecat::doobie-scalatest:0.12.1:test"  // ScalaTest support for typechecking statements.
-      ivy"io.circe::circe-core:$circeVersion", 
-      ivy"io.circe::circe-generic:$circeVersion", 
-      ivy"io.circe::circe-parser:$circeVersion", 
-
-
- 
   )
 
   object test extends Tests{

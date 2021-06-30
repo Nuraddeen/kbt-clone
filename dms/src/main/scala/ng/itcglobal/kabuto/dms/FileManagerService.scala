@@ -4,11 +4,9 @@ package dms
 import java.io.{File => JFile}
 import java.util.Base64
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
 
-import akka.actor.typed.{ActorRef, Behavior, Scheduler}
-import akka.actor.typed.scaladsl.AskPattern.Askable
+import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.util.Timeout
 
@@ -68,9 +66,8 @@ object FileManagerService {
       fileDir
         .children
         .filter(!_.isDirectory)
-        .map(child => {
-          Base64.getEncoder.encodeToString(resizeTiff(child))
-        })
+        .map(_.name)
+        .filter(_.nonEmpty)
         .toList
     else
       List[String]()
