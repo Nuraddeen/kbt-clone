@@ -19,6 +19,8 @@ import com.twelvemonkeys.contrib.tiff.TIFFUtilities
 
 import ng.itcglobal.kabuto._
 import core.util.{Config, Enum}
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 
 /**
@@ -44,19 +46,17 @@ object FileManagerService {
   final case object FileProcessOK extends FileResponse
   final case class FileResponseError(msg: String) extends FileResponse
   final case class FileSearchResponse(dir: List[String]) extends FileResponse
+  final case class AllFilesFetchedResponse(dir: List[Application]) extends FileResponse
   final case class SingleFileSearchResponse(fileName: String) extends FileResponse
 
-  private def getApplicationDirectories(path: String): Try[List[String]] = Try {
-    val fileDir = File(path)
+  case class Application(name: String, lastModified: String)
 
-    if(fileDir.isDirectory)
-      fileDir
-        .children
-        .filter(_.isDirectory)
-        .map(_.name)
-        .toList
-    else
-      List[String]()
+  private def getApplicationDirectories(path: String): Try[List[Application]] = Try {
+    File(path)
+      .children
+      .filter(_.isDirectory)
+      .map(dir => Application(dir.name, LocalDateTime.ofInstant(dir.lastModifiedTime(), ZoneOffset.UTC).toString()))
+      .toList
   }
 
   private def getFilesByDirectory(path: String): Try[List[String]] = Try {
@@ -115,11 +115,10 @@ object FileManagerService {
       case req: GetAllDirectories =>
         val defaultFilesPath = Config.filesDirectory
         
-        // FileManger get the list of all dirs from default location
         getApplicationDirectories(defaultFilesPath) match {
-          case Success(files) => req.replyTo ! FileSearchResponse(files)
+          case Success(files) =>
+            req.replyTo ! AllFilesFetchedResponse(files)
           case Failure(error) => 
-            println(s"$error,\n")
             req.replyTo ! FileResponseError(error.toString)
         }
         
@@ -127,7 +126,8 @@ object FileManagerService {
 
       case req: GetFilesByPath =>
         getFilesByDirectory(baseDirectory + req.dirPath) match {
-          case Success(files) => req.replyTo ! FileSearchResponse(files)
+          case Success(files) => 
+            req.replyTo ! FileSearchResponse(files)
           case Failure(error) => req.replyTo ! FileResponseError(error.toString)
         }
 

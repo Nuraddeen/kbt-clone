@@ -50,7 +50,7 @@ class ApplicationProcessorRoutes(fileMangerService: ActorRef[FileManagerService.
               onComplete(futFileResponse) {
                 case Success(fileResponse) =>
                   fileResponse match {
-                    case FileManagerService.FileSearchResponse(files) =>
+                    case FileManagerService.AllFilesFetchedResponse(files) =>
                       complete(files)
                     case FileManagerService.FileResponseError(errors) =>
                       complete(StatusCodes.InternalServerError -> s"$errors")
@@ -68,7 +68,7 @@ class ApplicationProcessorRoutes(fileMangerService: ActorRef[FileManagerService.
               onComplete(futRes) {
                 case Success(filesRes) =>
                   filesRes match {
-                    case FileManagerService.FileSearchResponse(files) =>
+                    case FileManagerService.AllFilesFetchedResponse(files) =>
                       complete(files)
                     case FileManagerService.FileResponseError(errors) =>
                       complete(StatusCodes.InternalServerError -> s"$errors")

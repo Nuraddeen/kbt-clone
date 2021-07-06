@@ -7,6 +7,8 @@ import spray.json.JsString
 import spray.json.JsValue
 import spray.json.RootJsonFormat
 
+import FileManagerService.Application
+
 trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   import JobRepository._
 
@@ -24,4 +26,5 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   }
 
   implicit val jobFormat = jsonFormat4(Job)
+  implicit val appFormat = jsonFormat2(Application)
 }
