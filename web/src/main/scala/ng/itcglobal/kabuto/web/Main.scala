@@ -1,14 +1,20 @@
-package ng.itcglobal.kabuto.web
+package ng.itcglobal.kabuto
+package web
 
 import scala.util.{Failure, Success}
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop}
+
+import akka.actor.typed.{ActorSystem, Behavior, PostStop}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.Http
-import ng.itcglobal.kabuto._
-import ng.itcglobal.kabuto.dms.JobRepository
-import ng.itcglobal.kabuto.web.routes.DmsRoutes
+import akka.http.scaladsl.server.RouteConcatenation.concat
 
+import ng.itcglobal.kabuto._
+import dms.DocumentProcessorService
+import dms.FileManagerService
+import core.db.postgres.services.DocumentMetadataDbService
+import web.routes.DocumentProcessorRoutes
+import core.util.Config
 
 object Server {
 
@@ -21,10 +27,17 @@ object Server {
 
     implicit val system = ctx.system
 
-    val buildJobRepository = ctx.spawn(JobRepository(), "jobRepository")
-    val route              = new DmsRoutes(buildJobRepository)
+    val fileManagerService        = ctx.spawn(FileManagerService(), "fileManagerServiceActor")
+    val metadataService           = ctx.spawn(DocumentMetadataDbService(), "metadataServiceActor")
+    val documentProcessorService  = ctx.spawn(DocumentProcessorService(metadataService, fileManagerService), "documentProcessingService")
+    
+    val documentProcessorRoute  = new DocumentProcessorRoutes(documentProcessorService).documentMetadataRoutes
 
-    val serverBinding = Http().newServerAt(host, port).bind(route.jobRoutes)
+    val route = concat(
+      documentProcessorRoute
+    )
+
+    val serverBinding = Http().newServerAt(host, port).bind(route)
 
     ctx.pipeToSelf(serverBinding) {
       case Success(binding) => Started(binding)
@@ -65,6 +78,6 @@ object Server {
 
 
 def main(args: Array[String]): Unit = {
-  val system: ActorSystem[Server.Message] = ActorSystem(Server.apply("localhost", 8090), "BuildJobsServer")
+   ActorSystem(Server.apply(Config.applicationIpAddress, Config.applicationPortNumber), "BuildJobsServer")
  }
 }

@@ -1,33 +1,34 @@
 package ng.itcglobal.kabuto.dms
 
 import java.io.{File => JFile}
-import java.net.URLConnection
 import java.util.Base64
-
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
 
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.{ActorRef, Behavior, Scheduler}
+import akka.actor.typed.scaladsl.AskPattern.Askable
 import akka.actor.typed.scaladsl.Behaviors
-
-import com.sksamuel.scrimage.ImmutableImage
-import com.sksamuel.scrimage.nio.JpegWriter
-
-import com.twelvemonkeys.contrib.tiff.TIFFUtilities
+import akka.util.Timeout
 
 import better.files._
 import better.files.Dsl._
-import File._
+
+import com.sksamuel.scrimage.ImmutableImage
+import com.sksamuel.scrimage.nio.JpegWriter
+import com.twelvemonkeys.contrib.tiff.TIFFUtilities
 
 import ng.itcglobal.kabuto._
-
+import core.db.postgres.services.{DocumentMetadata, DocumentMetadataDbService}
+import core.db.postgres.services.DocumentMetadataDbService.SaveDocument
 import core.util.Enum
-
-
 
 /**
  * manager of file IO operation for the kabuto
  */
 object FileManagerService {
+
+  implicit val timeout: Timeout = 3.seconds
 
   sealed trait FileCommand
   final case class AppendFileToDir(
@@ -38,67 +39,92 @@ object FileManagerService {
 
   final case class GetFileByPath(dirPath: String, replyTo: ActorRef[FileResponse]) extends FileCommand
   final case class SplitSingleTiffFile(tif: String, outputDir: String, replyTo: ActorRef[FileResponse]) extends FileCommand
-
+  final case class GetSinglePageFromFile(filePath: String, replyTo: ActorRef[FileResponse]) extends FileCommand
 
   sealed trait FileResponse
   final case object FileProcessOK extends FileResponse
   final case class FileResponseError(msg: String) extends FileResponse
   final case class FileSearchResponse(dir: List[String]) extends FileResponse
 
-  def apply(): Behavior[FileCommand] = Behaviors.receiveMessage {
-    case req: AppendFileToDir =>
-      val fileDir: File = File(req.filePath)
-      fileDir.isDirectory match {
-        case true =>
+  def apply(): Behavior[FileCommand] = Behaviors.receive { (context, message) =>
+    val log = context.log
+    implicit val scheduler: Scheduler = context.system.scheduler
+    implicit val executionContext: ExecutionContextExecutor = context.executionContext
+
+    message match {
+      case req: AppendFileToDir =>
+        val fileDir: File = File(req.filePath)
+
+        if (fileDir.isDirectory) {
           Try(Base64.getDecoder.decode(req.fileString)) match {
             case Success(bytes) =>
 
-               getImageExtension(req.fileString) match {
-                 case Some(x) =>
-                   x match {
-                     case Enum.ImageTypes.Tiff =>
-                       val newFile = File(req.filePath + req.filename + "." + Enum.ImageTypes.Tiff)
-                       newFile.writeBytes(bytes.iterator)
-                       req.replyTo ! FileProcessOK
-                     case _                    =>  req.replyTo ! FileResponseError(s"invalid file format $x")
+              getImageExtension(req.fileString) match {
+                case Some(x) =>
+                  x match {
+                    case Enum.ImageTypes.Tiff =>
+                      val newFile = File(req.filePath + req.filename + "." + Enum.ImageTypes.Tiff)
+                      newFile.writeBytes(bytes.iterator)
+                      req.replyTo ! FileProcessOK
+                    case _ => 
+                      req.replyTo ! FileResponseError(s"invalid file format $x")
 
-                   }
-                 case None    => req.replyTo ! FileResponseError(s"unknown file format")
-               }
+                  }
+                case None =>
+                  log.error("unknown file format")
+                  req.replyTo ! FileResponseError(s"unknown file format")
+              }
 
-            case Failure(er)    => req.replyTo ! FileResponseError(s"could not write file ${er.getMessage}")
+            case Failure(er) => 
+              log.error(s"could not write file $er")
+              req.replyTo ! FileResponseError(s"could not write file $er")
           }
           Behaviors.same
-
-        case false => req.replyTo ! FileResponseError("invalid file directory")
+        } else {
+          log.error(s"invalid file directory", req.filePath)
+          req.replyTo ! FileResponseError("invalid file directory")
           Behaviors.same
+        }
+
+      case req: GetFileByPath =>
+        val fileDir = File(req.dirPath)
+        fileDir.isDirectory match {
+          case true =>
+
+            val bytes = fileDir.list.toList.map { tif: File =>
+              val byte = resizeTiff(tif)
+              Base64.getEncoder.encodeToString(byte)
+            }
+            req.replyTo ! FileSearchResponse(bytes)
+            Behaviors.same
+          case false =>
+            req.replyTo ! FileSearchResponse(List[String]().empty)
+            Behaviors.same
+        }
+
+      case req: SplitSingleTiffFile =>
+        mkdir(File(req.outputDir))
+        Try(TIFFUtilities.split(new JFile(req.tif), new JFile(req.outputDir))) match {
+          case Success(x)  => req.replyTo ! FileProcessOK
+            Behaviors.same
+          case Failure(er) => req.replyTo ! FileResponseError(s"Error while saving file to dir ${er.getMessage}")
+            Behaviors.same
+        }
+
+      case GetSinglePageFromFile(filePath, replyTo) =>
+        val fileDir = File(filePath)
+        
+        if(fileDir.isEmpty)
+          replyTo ! FileResponseError(s"File doesn't exists: $filePath")
+        else{
+          val byte = Base64.getEncoder.encodeToString(resizeTiff(fileDir))
+          replyTo ! FileSearchResponse(List(byte))
+        }
+
+        Behaviors.same
       }
 
-    case req: GetFileByPath =>
-      val fileDir = File(req.dirPath)
-      fileDir.isDirectory match {
-        case true =>
-
-          val bytes = fileDir.list.toList.map { tif: File =>
-            val byte = resizeTiff(tif)
-            Base64.getEncoder.encodeToString(byte)
-          }
-          req.replyTo ! FileSearchResponse(bytes)
-          Behaviors.same
-        case false =>
-          req.replyTo ! FileSearchResponse(List[String]().empty)
-          Behaviors.same
-      }
-
-    case req: SplitSingleTiffFile =>
-      mkdir(File(req.outputDir))
-      Try(TIFFUtilities.split(new JFile(req.tif), new JFile(req.outputDir))) match {
-        case Success(x)  => req.replyTo ! FileProcessOK
-          Behaviors.same
-        case Failure(er) => req.replyTo ! FileResponseError(s"Error while saving file to dir ${er.getMessage}")
-          Behaviors.same
-      }
-  }
+    }
 
   /**
    * resize a tif single tif file to jpeg format in byte arrays

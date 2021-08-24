@@ -4,3 +4,8 @@ target/
 .bloop/
 .metals/
 .vscode/
+metals.sbt
+**/metals.sbt
+project/project/
+data/apitest/
+out/

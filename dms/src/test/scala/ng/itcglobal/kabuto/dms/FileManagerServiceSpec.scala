@@ -6,13 +6,9 @@ import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 
 import better.files._
 import better.files.Dsl._
-import File._
 
 import ng.itcglobal.kabuto._
-
 import core.util.Enum
-
-import dms.FileManagerService
 
 import org.scalatest.wordspec.AnyWordSpecLike
 
