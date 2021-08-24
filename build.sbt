@@ -1,6 +1,5 @@
 lazy val akkaHttpVersion = "10.2.2"
 lazy val akkaVersion     = "2.6.10"
-lazy val circeVersion    = "0.14.0-M2"
 lazy val doobieVersion    = "0.12.1"
 
 
@@ -42,19 +41,18 @@ lazy val core = (project in file("core")).
   settings(
     sharedSettings, 
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-http"                    % akkaHttpVersion,
-      "com.typesafe.akka" %% "akka-http-spray-json"         % akkaHttpVersion,
-      "com.typesafe.akka" %% "akka-actor-typed"             % akkaVersion,
-      "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion     % Test,
-      "com.typesafe.akka" %% "akka-stream"                  % akkaVersion,
-      "com.typesafe.akka" %% "akka-persistence-typed"       % akkaVersion,
-      "com.typesafe.akka" %% "akka-persistence-query"       % akkaVersion,
-      "com.typesafe.akka" %% "akka-cluster-sharding-typed"  % akkaVersion,
-      "com.typesafe.akka" %% "akka-cluster-tools"           % akkaVersion,
-      "com.typesafe.akka" %% "akka-persistence-cassandra"   % "1.0.3",
-      "ch.qos.logback"    % "logback-classic"               % "1.2.3",
-      "io.spray"          %%  "spray-json"                  % "1.3.6",
-      "de.heikoseeberger" %% "akka-http-circe"              % "1.31.0",
+      "com.typesafe.akka"         %% "akka-http"                    % akkaHttpVersion,
+      "com.typesafe.akka"         %% "akka-http-spray-json"         % akkaHttpVersion,
+      "com.typesafe.akka"         %% "akka-actor-typed"             % akkaVersion,
+      "com.typesafe.akka"         %% "akka-actor-testkit-typed"     % akkaVersion     % Test,
+      "com.typesafe.akka"         %% "akka-stream"                  % akkaVersion,
+      "com.typesafe.akka"         %% "akka-persistence-typed"       % akkaVersion,
+      "com.typesafe.akka"         %% "akka-persistence-query"       % akkaVersion,
+      "com.typesafe.akka"         %% "akka-cluster-sharding-typed"  % akkaVersion,
+      "com.typesafe.akka"         %% "akka-cluster-tools"           % akkaVersion,
+      "com.typesafe.akka"         %% "akka-persistence-cassandra"   % "1.0.3",
+      "ch.qos.logback"            % "logback-classic"               % "1.2.3",
+      "io.spray"                  %%  "spray-json"                  % "1.3.6",
       "com.twelvemonkeys.imageio" % "imageio-tiff"          % "3.6.4",
       "com.twelvemonkeys.imageio" % "imageio-core"          % "3.6.4",
       "com.twelvemonkeys.contrib" % "contrib"               % "3.6.4",
@@ -68,13 +66,6 @@ lazy val core = (project in file("core")).
       "org.tpolecat" %% "doobie-specs2"    % "0.12.1" % "test", // Specs2 support for typechecking statements.
       "org.tpolecat" %% "doobie-scalatest" % "0.12.1" % "test"  // ScalaTest support for typechecking statements.
     ),
-
-    libraryDependencies ++= Seq(
-      "io.circe" %% "circe-core",
-      "io.circe" %% "circe-generic",
-      "io.circe" %% "circe-parser"
-    ).map(_ % circeVersion)
-
   )
 
 libraryDependencies += "ch.megard" %% "akka-http-cors" % "1.0.0"
