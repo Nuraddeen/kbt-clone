@@ -20,7 +20,7 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
    val singleTiffFile  = "data/dms/com-23-56.tif"
   import FileManagerService._
 
-   val getFile = GetFileByPath("data/xxx/", probe.ref)
+   val getFile = GetFilesByPath("data/xxx/", probe.ref)
 
   "the FileManagerService" must {
 
@@ -34,7 +34,7 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
 
     "retrieve files from a dir and return a base64 string image of all images in the dir" in {
        val dirPath = "data/xxx"
-      fileManager ! GetFileByPath(dirPath, probe.ref)
+      fileManager ! GetFilesByPath(dirPath, probe.ref)
 
       val bytesString = File(dirPath).list.toList.map{ tif: File =>
         val byte = FileManagerService.resizeTiff(tif)
