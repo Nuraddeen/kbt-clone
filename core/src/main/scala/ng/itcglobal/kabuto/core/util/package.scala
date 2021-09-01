@@ -12,6 +12,7 @@ object Enum {
     val Bmp  = Value("bmp")
     val Gif  = Value("gif")
     val Webp = Value("webp")
+    val Pdf = Value("pdf")
 
   }
 }
