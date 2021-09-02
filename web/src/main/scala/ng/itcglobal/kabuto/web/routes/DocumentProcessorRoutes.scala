@@ -25,10 +25,10 @@ class DocumentProcessorRoutes(documentProcessorService: ActorRef[DocumentProcess
   lazy val documentMetadataRoutes: Route = {
     pathPrefix("documents") {
       concat(
-        path(Segment) { docId =>          
+        path(Segment / Segment) { (fileNumber, fileType) =>          
           get {
             val futRes: Future[DocumentProcessorService.ProcessDocumentResponse] =
-              documentProcessorService.ask(DocumentProcessorService.GetDocument(docId, _))
+              documentProcessorService.ask(DocumentProcessorService.GetDocument(fileNumber, fileType, _))
             
               onComplete(futRes) {
                 case Success(document) =>
@@ -64,7 +64,6 @@ class DocumentProcessorRoutes(documentProcessorService: ActorRef[DocumentProcess
                 }
               case Failure(exception) =>
                 failWith(throw new Exception("Unable to complete the request"))
-                //complete(StatusCodes.NotFound -> s"unable to complete the request $exception")
             }
           }
         }

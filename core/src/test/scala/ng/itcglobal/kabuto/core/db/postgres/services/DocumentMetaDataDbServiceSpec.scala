@@ -90,7 +90,7 @@ class DocumentMetadataDbServiceSpec extends ScalaTestWithActorTestKit
 
     "retrieve document meta from the database" in {
       documentDbService ! SaveDocumentMetadata(documentMetadata, probe.ref)
-      documentDbService ! RetrieveDocumentMetadata(documentMetadata.id, probe.ref)
+      documentDbService ! RetrieveDocumentMetadata(documentMetadata.fileNumber, documentMetadata.fileType, probe.ref)
       probe.expectMessage(DocumentMetadataSaved(documentMetadata.id))
     }
 

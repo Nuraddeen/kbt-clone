@@ -29,6 +29,6 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
 
   implicit val jobFormat = jsonFormat4(Job)
   implicit val appFormat = jsonFormat2(Application)
-  implicit val docDtoFormat = jsonFormat6(DocumentProcessorService.DocumentDto)
+  implicit val docDtoFormat = jsonFormat7(DocumentProcessorService.DocumentDto)
 
 }

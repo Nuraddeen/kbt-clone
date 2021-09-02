@@ -26,11 +26,13 @@ object DocumentMetadataDbService extends DatabaseContext {
         .transact(xa)
         .unsafeToFuture
   }
-  case class RetrieveDocumentMetadata(documentId: UUID, replyTo: ActorRef[DocumentMetadataResponse]) extends DocumentMetadataCommand {
-    def runQuery: Future[Option[DocumentMetadata]] =
-      run(query[DocumentMetadata].filter(_.id.equals(lift(documentId))))
-        .transact(xa)
-        .map(_.headOption)
+  case class RetrieveDocumentMetadata(fileNumber: String, fileType: String, replyTo: ActorRef[DocumentMetadataResponse]) extends DocumentMetadataCommand {
+    def runQuery: Future[List[DocumentMetadata]] =
+      run(query[DocumentMetadata]
+        .filter(_.fileNumber.equals(lift(fileNumber)))
+        .filter(_.fileType.equals(lift(fileType)))
+        )
+        .transact(xa) 
         .unsafeToFuture
   }
 
@@ -54,7 +56,7 @@ object DocumentMetadataDbService extends DatabaseContext {
   case class DocumentMetadataSaved(documentId: UUID) extends DocumentMetadataResponse
   case class AllDocumentsMetadataCount(count: Int) extends DocumentMetadataResponse
   case class AllDocumentsMetadata(metadataDocuments: Seq[DocumentMetadata]) extends DocumentMetadataResponse
-  case class DocumentMetadataRetrieved(docMetadata: DocumentMetadata) extends DocumentMetadataResponse
+  case class DocumentMetadataRetrieved(docMeetadataList: List[DocumentMetadata]) extends DocumentMetadataResponse
   case class DocumentMetadataFailure(reason: String) extends DocumentMetadataResponse
 
   def apply(): Behavior[DocumentMetadataCommand] = Behaviors.receive { (context, message) =>
@@ -82,21 +84,14 @@ object DocumentMetadataDbService extends DatabaseContext {
           Behaviors.same
 
         case req: RetrieveDocumentMetadata =>
-          val futResult: Future[Option[DocumentMetadata]] = req.runQuery
+          val futResult: Future[List[DocumentMetadata]] = req.runQuery
 
           futResult onComplete {
-            case Success(optFilePath) =>
-              optFilePath match {
-                case Some(fileMeta) =>
-                  req.replyTo ! DocumentMetadataRetrieved(fileMeta)
-                case None =>
-                  req.replyTo ! DocumentMetadataFailure(
-                    s"File with the id ${req.documentId} doesn't exists."
-                  )
-              }
-
+            case Success(docMetadataList) =>
+              req.replyTo ! DocumentMetadataRetrieved(docMetadataList)
             case Failure(exception) =>
-              req.replyTo ! DocumentMetadataFailure(exception.getMessage)
+              log.error(s"Could not retrieve document meta data {$exception}, request $req")
+              req.replyTo ! DocumentMetadataFailure("Could not retrieve document meta data")
           }
 
           Behaviors.same
@@ -110,7 +105,8 @@ object DocumentMetadataDbService extends DatabaseContext {
               Behaviors.same
 
             case Failure(exception) =>
-              req.replyTo ! DocumentMetadataFailure(exception.toString)
+              log.error(s"Could not retrieve all documents metadata {$exception}, request $req")
+              req.replyTo ! DocumentMetadataFailure("Could not retrieve all documents metadata")
           }
 
           Behaviors.same
@@ -120,7 +116,9 @@ object DocumentMetadataDbService extends DatabaseContext {
              .runQuery
              .onComplete {
                 case Success(count) => req.replyTo ! AllDocumentsMetadataCount(count)
-                case Failure(exception) => req.replyTo ! DocumentMetadataFailure(exception.toString)
+                case Failure(exception) => 
+                  log.error(s"Could not retrieve documents metadata count {$exception}, request $req")
+                  req.replyTo ! DocumentMetadataFailure("Could not retrieve documents metadata count")
              }
 
           Behaviors.same

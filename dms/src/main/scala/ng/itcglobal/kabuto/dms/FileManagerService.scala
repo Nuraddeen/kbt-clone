@@ -71,6 +71,12 @@ object FileManagerService {
   ) extends FileCommand
 
 
+  final case class RetrieveFileString(
+      filePath: String,
+      replyTo: ActorRef[FileResponse]
+  ) extends FileCommand
+
+
   sealed trait FileResponse
   final case object FileProcessOK extends FileResponse
   final case class FileResponseError(msg: String) extends FileResponse
@@ -79,7 +85,10 @@ object FileManagerService {
       extends FileResponse
   final case class SingleFileSearchResponse(fileName: String)
       extends FileResponse
+  
   final case class FileSavedResponse (fullFilePath: String)  extends FileResponse
+  final case class FileRetrievedResponse (fileString: String)  extends FileResponse
+
 
   case class Application(name: String, lastModified: String)
 
@@ -266,7 +275,20 @@ object FileManagerService {
           }
 
           Behaviors.same
-      }
+      
+         case req: RetrieveFileString =>
+          val file = File(req.filePath)
+          file.exists match {
+            case true =>
+                  req.replyTo ! FileRetrievedResponse(Base64.getEncoder.encodeToString(file.byteArray) )
+              
+            case false =>
+              log.error(s"The requested file does not exists in the path ${req.filePath}")
+              req.replyTo ! FileResponseError(s"File does not exists ")
+            }
+        Behaviors.same
+
+        }
 
     }
 
@@ -313,5 +335,18 @@ object FileManagerService {
         }
     }
   }
+
+
+   def getFileTypePrefix(fileExtension: String) : String = {
+       getImageExtension("", Some(fileExtension)) match {
+          case Some(extension) => extension match {
+            case  Enum.ImageTypes.Jpeg | Enum.ImageTypes.Jpg | Enum.ImageTypes.Tiff | Enum.ImageTypes.Png | Enum.ImageTypes.Bmp | Enum.ImageTypes.Gif | Enum.ImageTypes.Webp =>
+              s"data:image/${extension.toString};base64,"
+            case _ => ""
+          }
+          case None => ""
+        }
+        
+    }
 
 }

@@ -16,7 +16,7 @@ import akka.util.Timeout
 import ng.itcglobal.kabuto._
 import core.db.postgres.services.{DocumentMetadata, DocumentMetadataDbService}
 import core.db.postgres.services.DocumentMetadataDbService._
-import core.util.Config
+import core.util.{Config, Enum}
 import dms.FileManagerService._
 
 object DocumentProcessorService {
@@ -26,13 +26,33 @@ object DocumentProcessorService {
     fileNumber: String,
     fileType: String,
     title: String,
-    extension: String,
-    createdBy: String
-  )
+    fileExtension: String,
+    createdBy: String,
+    updatedBy: Option[String] = None
+  ) {
+
+  def generateFilePath(): String = {
+      val fn: String = fileNumber.toLowerCase
+                .flatMap {
+                  case ' ' | '/' | '.' => ""
+                  case s => s"$s"
+                }
+      s"${Config.filesDirectory}/$fn" 
+  }
+
+
+ 
+    def removeFileTypePrefix() : String ={
+      fileString.split(s"data:image/$fileExtension;base64,").last
+    }
+
+   
+
+}
 
   sealed trait ProcessDocumentCommand
   case class AddDocument(documentDto: DocumentDto, replyTo: ActorRef[ProcessDocumentResponse]) extends ProcessDocumentCommand
-  case class GetDocument(filePath: String, replyTo: ActorRef[ProcessDocumentResponse]) extends ProcessDocumentCommand
+  case class GetDocument(fileNumber: String, fileType: String, replyTo: ActorRef[ProcessDocumentResponse]) extends ProcessDocumentCommand
 
   sealed trait ProcessDocumentResponse
   case class DocumentProcessed(documentId: UUID) extends ProcessDocumentResponse
@@ -48,17 +68,18 @@ object DocumentProcessorService {
     Behaviors.receive { (context, message) =>
       implicit val ec: ExecutionContext = context.executionContext
       implicit val scheduler: Scheduler = context.system.scheduler
+      val log = context.log
 
       message match {
         case req: AddDocument =>
           val fileId = UUID.randomUUID()
-          val filePath = generateFilePath(req.documentDto.fileNumber)
+          val filePath = req.documentDto.generateFilePath()
 
           val saveFileCommand = SaveFileToDir(
             filename   = fileId.toString,
-            fileString = req.documentDto.fileString,
+            fileString = req.documentDto.removeFileTypePrefix(),
             filePath = filePath,
-            extension = Some(req.documentDto.extension),
+            extension = Some(req.documentDto.fileExtension),
              _
           )
 
@@ -101,50 +122,50 @@ object DocumentProcessorService {
      
           Behaviors.same
 
-        case GetDocument(filePath, replyTo) =>
-          val fileId = UUID.fromString(filePath.split("/").last)
-          
-          /*
-          val futFile: Future[FileManagerService.FileResponse] =
-            fileManagerServiceActor.ask(FileManagerService.GetFileByPath(filePath, _))
-           
-
-          val futMeta: Future[DocumentMetadataDbService.FileMetaResponse] =
-            documentMetadataDbServiceActor.ask(RetrieveDocument(fileId,_))
- */
-          documentMetadataDbServiceActor.ask(RetrieveDocumentMetadata(fileId,_)) onComplete {
+        case req: GetDocument =>
+       
+          documentMetadataDbServiceActor.ask(RetrieveDocumentMetadata(req.fileNumber, req.fileType, _)) onComplete {
             case Success(metaResponse) =>
               metaResponse match {
-                case DocumentMetadataRetrieved(fileMeta) => 
-                  fileManagerServiceActor.ask(FileManagerService.GetSinglePageFromFile(fileMeta.filePath + ".tiff", _)) onComplete {
-                    case Success(value) =>
-                      value match {
-                        case FileSearchResponse(files) =>
-                          val documentDto = DocumentDto(
-                            fileString = files.head,
-                            fileNumber = fileMeta.fileNumber,
-                            title = fileMeta.title,
-                            createdBy = fileMeta.updatedBy.getOrElse(""),
-                            extension = "",//Todo
-                            fileType = ""
-                          )
-                          replyTo ! DocumentFound(documentDto)
-                        case FileResponseError(msg) =>
-                          replyTo ! DocumentProcessingFailed(msg)
-                        case _  =>
-                          replyTo ! DocumentProcessingFailed(s"Unkown error happend, please try again later.")
-                      }
-                    case Failure(exception) =>
-                      replyTo ! DocumentProcessingFailed(exception.toString)
-                  }
-                case DocumentMetadataFailure(failure) =>
-                  replyTo ! DocumentProcessingFailed(failure)
+                case DocumentMetadataRetrieved(docMetadataList) => 
+                    docMetadataList match {
+                        case Nil => //no metadata was found
+                        req.replyTo ! DocumentProcessingFailed("No document metadata found")
+                        case _ =>  //meta data found
+                          val docMetaData = docMetadataList.head
+
+                        fileManagerServiceActor.ask(FileManagerService.RetrieveFileString(docMetaData.filePath, _)) onComplete {
+                          case Success(fileResponse) =>
+                            fileResponse match {
+                              case FileRetrievedResponse(fileString) =>
+                                val fileExtension = docMetaData.filePath.split('.').last
+
+                                val documentDto = DocumentDto(
+                                  fileString     = FileManagerService.getFileTypePrefix(fileExtension) + fileString,
+                                  fileNumber     = docMetaData.fileNumber,
+                                  fileType       = docMetaData.fileType,
+                                  title          = docMetaData.title,
+                                  fileExtension  = fileExtension,
+                                  createdBy      = docMetaData.createdBy,
+                                  updatedBy      = docMetaData.updatedBy,
+                                )
+                                req.replyTo ! DocumentFound(documentDto)
+                              case FileResponseError(msg) =>
+                                req.replyTo ! DocumentProcessingFailed(msg)
+                              case _  =>
+                                req.replyTo ! DocumentProcessingFailed(s"Unkown error occured, please try again later.")
+                            }
+                          case Failure(exception) =>
+                            log.error(s"Could not retrieve file string $exception, for the request $req")
+                            req.replyTo ! DocumentProcessingFailed("Could not retrieve file string")
+                        }
+                 }
                 case _ =>
-                  replyTo ! DocumentProcessingFailed(s"Unknown error happened, please try again later.")
+                 req.replyTo ! DocumentProcessingFailed(s"Could not retrieve document metadata, please try again later.")
               }
 
             case Failure(exception) =>
-              replyTo ! DocumentProcessingFailed(exception.toString)
+              req.replyTo ! DocumentProcessingFailed("Error retrieving document metadata, please try again later.")
           }
 
           Behaviors.same
@@ -153,15 +174,4 @@ object DocumentProcessorService {
     }
 
 
-
-    def generateFilePath(fileNumber: String): String = {
-      val fn: String = fileNumber.toLowerCase
-                .flatMap {
-                  case ' ' | '/' | '.' => ""
-                  case s => s"$s"
-                }
-      s"${Config.filesDirectory}/$fn"
-                //TODO: blm was hard coded here. 
-                //I put it so that we have a dedicated folder for files of any project. Because we may decide to use kabuto for another project, so it will also have its own folder
-    }
 }

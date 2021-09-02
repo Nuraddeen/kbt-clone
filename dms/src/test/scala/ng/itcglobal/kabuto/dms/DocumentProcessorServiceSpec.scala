@@ -25,10 +25,10 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
   import DocumentProcessorService._
   import DocumentMetadataDbService._
 
-  val probeDbServiceBeharior = testKit.createTestProbe[DocumentMetadataDbService.MetaCommand]
-  val mockedDbServiceBehavior = Behaviors.receiveMessage[DocumentMetadataDbService.MetaCommand] {
-    case SaveDocument(document, replyTo) =>
-      replyTo ! FileMetaSaved(docId)
+  val probeDbServiceBeharior = testKit.createTestProbe[DocumentMetadataDbService.DocumentMetadataCommand]
+  val mockedDbServiceBehavior = Behaviors.receiveMessage[DocumentMetadataDbService.DocumentMetadataCommand] {
+    case SaveDocumentMetadata(document, replyTo) =>
+      replyTo ! DocumentMetadataSaved(docId)
       Behaviors.same
   }
   val probeDbServiceActor = testKit.spawn(Behaviors.monitor(probeDbServiceBeharior.ref, mockedDbServiceBehavior))
@@ -58,7 +58,7 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
   val title: String = "Commercial Application"
   val updatedBy: String = "Nura YII"
 
-  val document: Document = Document(fileBase64String, filePath, fileNumber, title, updatedBy)
+  val document: DocumentDto = DocumentDto(fileBase64String, filePath, fileNumber, title, updatedBy)
 
 
   override def afterAll(): Unit = testKit.shutdownTestKit()
