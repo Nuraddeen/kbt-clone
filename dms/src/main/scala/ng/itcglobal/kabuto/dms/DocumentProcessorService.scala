@@ -13,13 +13,18 @@ import akka.actor.typed.scaladsl.AskPattern.Askable
 import akka.actor.typed.scaladsl.Behaviors
 import akka.util.Timeout
 
+import spray.json._
+
 import ng.itcglobal.kabuto._
 import core.db.postgres.services.{DocumentMetadata, DocumentMetadataDbService}
 import core.db.postgres.services.DocumentMetadataDbService._
-import core.util.{Config, Enum}
+import core.util.{Config}
+import core.util.Enum.HttpResponseStatus
+import core.util.Util.BetasoftApiHttpResponse
 import dms.FileManagerService._
 
-object DocumentProcessorService {
+
+object DocumentProcessorService extends JsonSupport {
   
   case class DocumentDto(
     fileString: String,
@@ -55,9 +60,11 @@ object DocumentProcessorService {
   case class GetDocument(fileNumber: String, fileType: String, replyTo: ActorRef[ProcessDocumentResponse]) extends ProcessDocumentCommand
 
   sealed trait ProcessDocumentResponse
-  case class DocumentProcessed(documentId: UUID) extends ProcessDocumentResponse
-  case class DocumentProcessingFailed(documentId: String) extends ProcessDocumentResponse
-  case class DocumentFound(documentDto: DocumentDto) extends ProcessDocumentResponse
+  case class DataResponse(response: BetasoftApiHttpResponse) extends ProcessDocumentResponse
+  case class ErrorResponse(message: String)               extends ProcessDocumentResponse
+  //case class DocumentProcessed(documentId: UUID) extends ProcessDocumentResponse
+  //case class DocumentProcessingFailed(documentId: String) extends ProcessDocumentResponse
+  //case class DocumentFound(documentDto: DocumentDto) extends ProcessDocumentResponse
 
   implicit val timeout: Timeout = 3.seconds
 
@@ -104,19 +111,38 @@ object DocumentProcessorService {
                           case Success(docMetaResponse) => 
                             docMetaResponse match {
                                  case res: DocumentMetadataSaved => 
-                                    req.replyTo ! DocumentProcessed(res.documentId)
+                                    req.replyTo ! DataResponse(
+                                      BetasoftApiHttpResponse(
+                                        status      = HttpResponseStatus.Success,
+                                        description = "Document Saved",
+                                        code        = Some(HttpResponseStatus.Success.id)
+                                      )
+                                    )
                                  case _ =>
                                     //Todo: Do we need to delete the file which was already saved?
-                                    req.replyTo ! DocumentProcessingFailed(s"unable to save file meta data")
+                                    req.replyTo ! DataResponse(
+                                      BetasoftApiHttpResponse(
+                                        status      = HttpResponseStatus.Failed,
+                                        description = "Could not save file meta data",
+                                        code        = Some(HttpResponseStatus.Failed.id)
+                                      )
+                                    )
+                                    
                             }
                           case Failure (error) => 
-                            req.replyTo ! DocumentProcessingFailed(s"unable to save file meta data")
+                            req.replyTo ! ErrorResponse(s"Could not save file meta data")
                         }
                       case _ => 
-                        req.replyTo ! DocumentProcessingFailed(s"unable to save file to disk")
+                         req.replyTo ! DataResponse(
+                                      BetasoftApiHttpResponse(
+                                        status      = HttpResponseStatus.Failed,
+                                        description = "Could not save file to disk",
+                                        code        = Some(HttpResponseStatus.Failed.id)
+                                      )
+                                    )
                 }
             case Failure (error) => 
-              req.replyTo ! DocumentProcessingFailed(s"unable to save file to disk")
+              req.replyTo ! ErrorResponse(s"Could not save file to disk")
 
           }
      
@@ -130,7 +156,13 @@ object DocumentProcessorService {
                 case DocumentMetadataRetrieved(docMetadataList) => 
                     docMetadataList match {
                         case Nil => //no metadata was found
-                        req.replyTo ! DocumentProcessingFailed("No document metadata found")
+                        req.replyTo ! DataResponse(
+                                      BetasoftApiHttpResponse(
+                                        status      = HttpResponseStatus.NotFound,
+                                        description = "No document metadata found",
+                                        code        = Some(HttpResponseStatus.NotFound.id)
+                                      )
+                                    )
                         case _ =>  //meta data found
                           val docMetaData = docMetadataList.head
 
@@ -149,23 +181,49 @@ object DocumentProcessorService {
                                   createdBy      = docMetaData.createdBy,
                                   updatedBy      = docMetaData.updatedBy,
                                 )
-                                req.replyTo ! DocumentFound(documentDto)
+                                req.replyTo !  DataResponse(
+                                      BetasoftApiHttpResponse(
+                                        status      = HttpResponseStatus.Success,
+                                        description = "Document retrieved",
+                                        code        = Some(HttpResponseStatus.Success.id),
+                                        data        = Some(documentDto.toJson)
+                                      )
+                                    )
+
                               case FileResponseError(msg) =>
-                                req.replyTo ! DocumentProcessingFailed(msg)
+                                req.replyTo ! DataResponse(
+                                      BetasoftApiHttpResponse(
+                                        status      = HttpResponseStatus.Failed,
+                                        description = msg,
+                                        code        = Some(HttpResponseStatus.Failed.id) 
+                                      )
+                                    ) 
                               case _  =>
-                                req.replyTo ! DocumentProcessingFailed(s"Unkown error occured, please try again later.")
+                                req.replyTo !  DataResponse(
+                                      BetasoftApiHttpResponse(
+                                        status      = HttpResponseStatus.Failed,
+                                        description = "Unkown error occurred, please try again later.",
+                                        code        = Some(HttpResponseStatus.Failed.id) 
+                                      )
+                                    )   
                             }
                           case Failure(exception) =>
                             log.error(s"Could not retrieve file string $exception, for the request $req")
-                            req.replyTo ! DocumentProcessingFailed("Could not retrieve file string")
+                            req.replyTo ! ErrorResponse("Could not retrieve file string")
                         }
                  }
                 case _ =>
-                 req.replyTo ! DocumentProcessingFailed(s"Could not retrieve document metadata, please try again later.")
+                 req.replyTo !  DataResponse(
+                                  BetasoftApiHttpResponse(
+                                    status      = HttpResponseStatus.Failed,
+                                    description = "Could not retrieve document metadata, please try again later.",
+                                    code        = Some(HttpResponseStatus.Failed.id) 
+                                  )
+                                )  
               }
 
             case Failure(exception) =>
-              req.replyTo ! DocumentProcessingFailed("Error retrieving document metadata, please try again later.")
+              req.replyTo ! ErrorResponse("Error retrieving document metadata, please try again later.")
           }
 
           Behaviors.same

@@ -2,7 +2,10 @@ package ng.itcglobal.kabuto
 package dms
 
 import java.io.{File => JFile}
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.Base64
+
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success, Try}
 
@@ -19,8 +22,6 @@ import com.twelvemonkeys.contrib.tiff.TIFFUtilities
 
 import ng.itcglobal.kabuto._
 import core.util.{Config, Enum}
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 
 /**
   * manager of file IO operation for the kabuto
@@ -208,12 +209,12 @@ object FileManagerService {
                     req.replyTo ! FileSavedResponse(newFile.path.toString)
                    
                   case None =>
-                    log.error(s"unknown file format, {}", req)
+                    log.error(s"unknown file format for the extension ${req.extension} for the file ${req.fileString.take(20)} ... ")
                     req.replyTo ! FileResponseError("unknown file format")
                 }
 
               case Failure(error) =>
-                log.error(s"could not decode file {} {}", req.fileString, error)
+                log.error(s"could not decode file {}... {}", req.fileString.take(20), error)
                 req.replyTo ! FileResponseError("could not write file")
             }
             Behaviors.same
@@ -276,7 +277,7 @@ object FileManagerService {
 
           Behaviors.same
       
-         case req: RetrieveFileString =>
+        case req: RetrieveFileString =>
           val file = File(req.filePath)
           file.exists match {
             case true =>
