@@ -20,6 +20,7 @@ import core.db.postgres.Tables._
 import core.util.Enum.HttpResponseStatus
 import core.util.Util.BetasoftApiHttpResponse 
 import DocumentProcessorService._
+import DocumentMetadataDbService._
 
 
 class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
@@ -59,6 +60,14 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
     createdBy = "TestScript"
   )
 
+  val savedResponse = DocumentProcessorService.DataResponse(
+                 BetasoftApiHttpResponse(
+                    status      = HttpResponseStatus.Success,
+                    description = "Document Saved",
+                    code        = Some(HttpResponseStatus.Success.id)
+                  )
+        )
+
 
   
 
@@ -86,13 +95,7 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
 
       docProcessorService ! AddDocument(documentDto, docProcessorProbe.ref)
       
-      docProcessorProbe.expectMessage(DocumentProcessorService.DataResponse(
-               BetasoftApiHttpResponse(
-                  status      = HttpResponseStatus.Success,
-                  description = "Document Saved",
-                  code        = Some(HttpResponseStatus.Success.id)
-                )
-      ))
+      docProcessorProbe.expectMessage(savedResponse)
 
     }
 
@@ -112,11 +115,11 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
 
     }
 
-         "fail to add the file when the file string is invalid" in {
+    "fail to add the file when the file string is invalid" in {
 
            docProcessorService ! AddDocument(
              DocumentDto(
-                fileString =  "invalid file string",
+                fileString =  "Invalid file string",
                 fileNumber = "Test01",
                 fileType = "Test",
                 title = "Test File",
@@ -126,6 +129,56 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
 
         docProcessorProbe.expectMessage(DocumentProcessorService.ErrorResponse("Could not save file to disk"))
        }
+
+
+
+      "delete all existing files with the same file number and file type" ignore {
+
+          //add document
+          //add again
+          //prove that the first document does not exists by getting it
+
+          docProcessorService ! AddDocument(documentDto, docProcessorProbe.ref)
+          docProcessorProbe.expectMessage(savedResponse)
+
+          //there is no way to get the uuid that was saved and it is required to make asserion here
+         // docMetaDataDbService ! RetrieveDocumentMetadata(documentDto.fileNumber, documentDto.fileType, docMetadataDbProbe.ref)
+          
+
+          docProcessorService ! AddDocument(documentDto, docProcessorProbe.ref)
+          docProcessorProbe.expectMessage(savedResponse)
+
+
+        }
+
+
+
+      "retrieve a saved document with valid file number and file types" in {
+                 docProcessorService ! AddDocument(documentDto, docProcessorProbe.ref)
+                 docProcessorProbe.expectMessage(savedResponse)
+
+                docProcessorService ! GetDocument(documentDto.fileNumber, documentDto.fileType, docProcessorProbe.ref)
+                val docData = DocumentDto(
+                    fileString =  fileString,
+                    fileNumber = fileNumber,
+                    fileType = fileType,
+                    title = "Testing Document Service",
+                    fileExtension = webpFileExtension,
+                    createdBy = "TestScript",
+                    updatedBy = None
+                  )
+
+
+                  docProcessorProbe.expectMessage(DocumentProcessorService.DataResponse(
+                                   BetasoftApiHttpResponse(
+                                      status = HttpResponseStatus.Success,
+                                      description = "Document retrieved",
+                                      code = Some(HttpResponseStatus.Success.id),
+                                      data = Some(docData.toJson)
+                                    )
+                                    )
+                          )
+               }
   }
 
 }
