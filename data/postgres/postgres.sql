@@ -31,7 +31,6 @@ CREATE TABLE public.document_metadata (
 	title varchar NOT NULL,
 	captured_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-	'status' varchar NOT NULL DEFAULT 'latest'::character varying,
 	created_by varchar NOT NULL,
 	updated_by varchar NULL,
 );

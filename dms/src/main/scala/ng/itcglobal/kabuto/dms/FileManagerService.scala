@@ -202,7 +202,7 @@ object FileManagerService {
           }
 
           if (fileDir.isDirectory) {
-              Try (Base64.getMimeDecoder.decode(req.fileString)) match {
+            Try (Base64.getMimeDecoder.decode(req.fileString)) match {
               case Success(bytes) =>
                 getImageExtension(req.fileString, req.extension) match {
                   case Some(ext) => 

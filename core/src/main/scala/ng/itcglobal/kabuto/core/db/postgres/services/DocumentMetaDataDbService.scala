@@ -78,23 +78,6 @@ object DocumentMetadataDbService extends DatabaseContext {
   }
 
 
-     case class FlagMetadataAsDuplicate(
-       excludeId: UUID,
-       fileNumber: String,
-       fileType: String,
-       replyTo: ActorRef[DocumentMetadataResponse]
-   ) extends DocumentMetadataCommand {
-     def runQuery: Future[Long] =
-       run(
-         query[DocumentMetadata] 
-            .filter(meta => !meta.id.equals(lift(excludeId)) 
-                        && meta.fileNumber.equals(lift(fileNumber)) 
-                        && meta.fileType.equals(lift(fileType))
-                  )
-          .update(_.status -> Some("duplicate"))
-       ).transact(xa)
-         .unsafeToFuture()
-   }
 
   
   sealed trait DocumentMetadataResponse
@@ -207,20 +190,7 @@ object DocumentMetadataDbService extends DatabaseContext {
           Behaviors.same
 
 
-          case req: FlagMetadataAsDuplicate =>
-                    req.runQuery
-                      .onComplete {
-                        case Success(count) => req.replyTo ! DocumentMetadataProcessed
-                        case Failure(exception) =>
-                          log.error(
-                            s"Could not flag meta data as duplicate {$exception}, request $req"
-                          )
-                          req.replyTo ! DocumentMetadataFailure(
-                            "Could not flat metadata as duplicate"
-                          )
-                      }
-
-                    Behaviors.same
+       
       }
     }
 }

@@ -85,6 +85,7 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
     "successfully save new file request" in {
 
       docProcessorService ! AddDocument(documentDto, docProcessorProbe.ref)
+      
       docProcessorProbe.expectMessage(DocumentProcessorService.DataResponse(
                BetasoftApiHttpResponse(
                   status      = HttpResponseStatus.Success,
@@ -107,13 +108,8 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
                   createdBy = "TestScript"
                 ), docProcessorProbe.ref)
                 
-          docProcessorProbe.expectMessage(DocumentProcessorService.DataResponse(
-              BetasoftApiHttpResponse(
-                  status      = HttpResponseStatus.Failed,
-                  description = "Could not save file to disk",
-                  code        = Some(HttpResponseStatus.Failed.id)
-                )
-         ))
+            docProcessorProbe.expectMessage(DocumentProcessorService.ErrorResponse(s"Could not save file to disk"))
+
     }
 
          "fail to add the file when the file string is invalid" in {
@@ -128,13 +124,7 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
                 createdBy = "TestScript"
               ), docProcessorProbe.ref)
 
-             docProcessorProbe.expectMessage(DocumentProcessorService.DataResponse(
-                 BetasoftApiHttpResponse(
-                     status      = HttpResponseStatus.Failed,
-                     description = "Could not save file to disk",
-                     code        = Some(HttpResponseStatus.Failed.id)
-                   )
-            ))
+        docProcessorProbe.expectMessage(DocumentProcessorService.ErrorResponse("Could not save file to disk"))
        }
   }
 

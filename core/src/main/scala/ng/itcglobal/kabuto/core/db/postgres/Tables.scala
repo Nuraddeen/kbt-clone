@@ -12,7 +12,6 @@ object Tables {
       fileNumber: String,
       fileType: String,
       title: String,
-      status: Option[String] = Some ("latest"),
       capturedAt: LocalDateTime = LocalDateTime.now(),
       updatedAt: Option[LocalDateTime],
       createdBy: String,
