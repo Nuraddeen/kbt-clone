@@ -2,105 +2,140 @@ package ng.itcglobal.kabuto
 package dms
 
 import java.util.UUID
+import scala.util.{Failure, Success}
 
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
+import akka.actor.typed.scaladsl.AskPattern.Askable
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, Behavior, Scheduler}
 import cats.implicits.catsSyntaxTuple2Semigroupal
 import better.files._
 
 import ng.itcglobal.kabuto._
 import core.db.postgres.DatabaseContext
-import core.db.postgres.services.DocumentMetadataDbService
-import dms.FileManagerService.{AppendFileToDir, FileProcessOK}
+import core.db.postgres.services._
+import core.db.postgres.Tables._
+import core.util.Enum.HttpResponseStatus
+import core.util.Util.BetasoftApiHttpResponse 
+import DocumentProcessorService._
 
 
 class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
- with AnyWordSpecLike
+  with AnyWordSpecLike
   with BeforeAndAfterAll
   with BeforeAndAfterEach
   with DatabaseContext {
+
   import doobie.implicits._
-  import DocumentProcessorService._
-  import DocumentMetadataDbService._
+  import quillContext._
 
-  val probeDbServiceBeharior = testKit.createTestProbe[DocumentMetadataDbService.DocumentMetadataCommand]
-  val mockedDbServiceBehavior = Behaviors.receiveMessage[DocumentMetadataDbService.DocumentMetadataCommand] {
-    case SaveDocumentMetadata(document, replyTo) =>
-      replyTo ! DocumentMetadataSaved(docId)
-      Behaviors.same
-  }
-  val probeDbServiceActor = testKit.spawn(Behaviors.monitor(probeDbServiceBeharior.ref, mockedDbServiceBehavior))
 
-  val probeFileServiceBehavior = testKit.createTestProbe[FileManagerService.FileCommand]
-  val mockedFileServiceBehavior = Behaviors.receiveMessage[FileManagerService.FileCommand]{
-    case AppendFileToDir(_, _, _, replyTo) =>
-      replyTo ! FileProcessOK
-      Behaviors.same
-  }
-  val probeFileServiceActor = testKit.spawn(Behaviors.monitor(probeFileServiceBehavior.ref, mockedFileServiceBehavior))
+  val fileManagerService = testKit.spawn(FileManagerService(), "file-manager-service")
+  val docMetaDataDbService = testKit.spawn(DocumentMetadataDbService(), "doc-metadata-db-service")
+  val docProcessorService = testKit.spawn(DocumentProcessorService(docMetaDataDbService, fileManagerService), "doc-processor-service")
 
-  val probe = testKit.createTestProbe[DocumentProcessorService.ProcessDocumentResponse]("probe-document-processor-service")
-  val docProcService = testKit.spawn(DocumentProcessorService(probeDbServiceActor.ref, probeFileServiceActor.ref))
+  val docProcessorProbe  = testKit.createTestProbe[DocumentProcessorService.ProcessDocumentResponse]()
+  val docMetadataDbProbe = testKit.createTestProbe[DocumentMetadataDbService.DocumentMetadataResponse]()
+  val fileManagerProbe   = testKit.createTestProbe[FileManagerService.FileResponse]()
 
   implicit val ec = testKit.system.executionContext
+  implicit val scheduler: Scheduler = testKit.system.scheduler
+ 
 
-  val docId = UUID.randomUUID()
-  val fileDestination = "data/dms/test/dir/"
-  val singleTiffFile = "data/dms/com-23-56.tif"
+  val fileString = "data:image/webp;base64,UklGRkIDAABXRUJQVlA4WAoAAAAgAAAAEgAAEQAASUNDUKACAAAAAAKgbGNtcwQwAABtbnRyUkdCIFhZWiAH5QAJAAEACgAaABJhY3NwQVBQTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9tYAAQAAAADTLWxjbXMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1kZXNjAAABIAAAAEBjcHJ0AAABYAAAADZ3dHB0AAABmAAAABRjaGFkAAABrAAAACxyWFlaAAAB2AAAABRiWFlaAAAB7AAAABRnWFlaAAACAAAAABRyVFJDAAACFAAAACBnVFJDAAACFAAAACBiVFJDAAACFAAAACBjaHJtAAACNAAAACRkbW5kAAACWAAAACRkbWRkAAACfAAAACRtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACQAAAAcAEcASQBNAFAAIABiAHUAaQBsAHQALQBpAG4AIABzAFIARwBCbWx1YwAAAAAAAAABAAAADGVuVVMAAAAaAAAAHABQAHUAYgBsAGkAYwAgAEQAbwBtAGEAaQBuAABYWVogAAAAAAAA9tYAAQAAAADTLXNmMzIAAAAAAAEMQgAABd7///MlAAAHkwAA/ZD///uh///9ogAAA9wAAMBuWFlaIAAAAAAAAG+gAAA49QAAA5BYWVogAAAAAAAAJJ8AAA+EAAC2xFhZWiAAAAAAAABilwAAt4cAABjZcGFyYQAAAAAAAwAAAAJmZgAA8qcAAA1ZAAAT0AAACltjaHJtAAAAAAADAAAAAKPXAABUfAAATM0AAJmaAAAmZwAAD1xtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAEcASQBNAFBtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJWUDggfAAAADAEAJ0BKhMAEgA+MRaIQyIhIRQGqCADBLKAVhfgQGkJLS4K03F2aq98AAD+/OmdvtxT9mtzo6TyHq6/4nzyRz0f5OWb0zDYLfmOvIo5h0eCyqzk96EgUTeEUC+RG8CdXFPA3PYfp/Cqqcf9rji60s/ppVusaT8yPEK6AAA="
+  val webpFileExtension = "webp"
+  val invalidFileExtension = "zzz"
+  val fileNumber = "Test01"
+  val fileType = "Test File"
 
-  val file: Array[Byte] = File(singleTiffFile).loadBytes
+  val documentDto = DocumentDto(
+    fileString =  fileString,
+    fileNumber = fileNumber,
+    fileType = fileType,
+    title = "Testing Document Service",
+    fileExtension = webpFileExtension,
+    createdBy = "TestScript"
+  )
 
-  val fileBase64String: String = java.util.Base64.getEncoder.encodeToString(file)
-  val filePath: String = fileDestination
-  val fileNumber: String = "COM-23-56"
-  val title: String = "Commercial Application"
-  val updatedBy: String = "Nura YII"
 
-  val document: DocumentDto = DocumentDto(fileBase64String, filePath, fileNumber, title, updatedBy)
+  
 
+  
 
-  override def afterAll(): Unit = testKit.shutdownTestKit()
+  override def beforeEach() : Unit = {
+    //delete all test file metadata 
+      quillContext.run(
+          query[DocumentMetadata]
+            .filter(meta => meta.fileNumber.equals(lift(fileNumber)) && meta.fileType.equals(lift(fileType)) )
+            .delete
+            )
+        .transact(xa)
+        .unsafeRunSync()
 
-  override def beforeEach(): Unit = {
-    val drop =
-      sql"""DROP TABLE IF EXISTS document_metadata""".update.run
-
-    val create =
-      sql"""
-        CREATE TABLE IF NOT EXISTS document_metadata
-        (
-            id          uuid      NOT NULL PRIMARY KEY,
-            file_path   TEXT      NOT NULL UNIQUE,
-            file_number VARCHAR   NOT NULL UNIQUE,
-            file_type   VARCHAR   NOT NULL,
-            title       VARCHAR   NOT NULL,
-            captured_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            created_by  VARCHAR   NOT NULL,
-            updated_by  VARCHAR
-        )
-         """.update
-        .run
-
-    (drop, create)
-      .mapN(_ + _)
-      .transact(xa)
-      .unsafeRunSync()
+    val testFilesDir = File(documentDto.generateFilePath())
+    testFilesDir.clear()//delete all files in the path
   }
 
+
+
+
   "Document Processor Service" should {
-    "process new file processing request" in {
+    "successfully save new file request" in {
 
-      docProcService ! AddDocument(document, probe.ref)
-      probe.expectMessage(DocumentProcessed(docId))
+      docProcessorService ! AddDocument(documentDto, docProcessorProbe.ref)
+      docProcessorProbe.expectMessage(DocumentProcessorService.DataResponse(
+               BetasoftApiHttpResponse(
+                  status      = HttpResponseStatus.Success,
+                  description = "Document Saved",
+                  code        = Some(HttpResponseStatus.Success.id)
+                )
+      ))
+
     }
 
-    "failed to process file request when file is not valid" in {
-//      docProcService ! req
-//      probe.expectNoMessage
+    "fail to add the file when it's extension is invalid" in {
+
+              docProcessorService ! AddDocument(
+                DocumentDto(
+                  fileString =  fileString,
+                  fileNumber = "Test01",
+                  fileType = "Test",
+                  title = "Test File",
+                  fileExtension = invalidFileExtension,
+                  createdBy = "TestScript"
+                ), docProcessorProbe.ref)
+                
+          docProcessorProbe.expectMessage(DocumentProcessorService.DataResponse(
+              BetasoftApiHttpResponse(
+                  status      = HttpResponseStatus.Failed,
+                  description = "Could not save file to disk",
+                  code        = Some(HttpResponseStatus.Failed.id)
+                )
+         ))
     }
+
+         "fail to add the file when the file string is invalid" in {
+
+           docProcessorService ! AddDocument(
+             DocumentDto(
+                fileString =  "invalid file string",
+                fileNumber = "Test01",
+                fileType = "Test",
+                title = "Test File",
+                fileExtension = invalidFileExtension,
+                createdBy = "TestScript"
+              ), docProcessorProbe.ref)
+
+             docProcessorProbe.expectMessage(DocumentProcessorService.DataResponse(
+                 BetasoftApiHttpResponse(
+                     status      = HttpResponseStatus.Failed,
+                     description = "Could not save file to disk",
+                     code        = Some(HttpResponseStatus.Failed.id)
+                   )
+            ))
+       }
   }
 
 }

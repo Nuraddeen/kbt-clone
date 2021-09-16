@@ -77,6 +77,10 @@ object FileManagerService {
       replyTo: ActorRef[FileResponse]
   ) extends FileCommand
 
+  final case class DeleteFile(
+        filePath: String,
+        replyTo: ActorRef[FileResponse]
+    ) extends FileCommand
 
   sealed trait FileResponse
   final case object FileProcessOK extends FileResponse
@@ -111,7 +115,7 @@ object FileManagerService {
   private def getFilesByDirectory(path: String): Try[List[String]] =
     Try {
       val fileDir = File(path)
-
+       
       if (fileDir.isDirectory)
         fileDir.children
           .filter(!_.isDirectory)
@@ -288,6 +292,18 @@ object FileManagerService {
               req.replyTo ! FileResponseError(s"File does not exists ")
             }
         Behaviors.same
+
+        case req: DeleteFile =>
+              val file = File(req.filePath)
+              file.isRegularFile && file.exists match {
+                case true =>
+                      file.delete() 
+                      req.replyTo ! FileProcessOK 
+                case false =>
+                  log.error(s"Error in processing request $req. The file path is not a file or it does not exists")
+                  req.replyTo ! FileResponseError(s"Path is not a file or it does not exists")
+                }
+            Behaviors.same
 
         }
 

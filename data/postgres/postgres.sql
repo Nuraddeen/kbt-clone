@@ -23,16 +23,17 @@ CREATE TABLE IF NOT EXISTS document (
 
 
 
-CREATE TABLE document_metadata (
+CREATE TABLE public.document_metadata (
 	id uuid NOT NULL,
 	file_path text NOT NULL,
 	file_number varchar NOT NULL,
 	file_type varchar NOT NULL,
 	title varchar NOT NULL,
-	captured_at timestamp NOT NULL,
-	updated_at timestamp NULL,
+	captured_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+	'status' varchar NOT NULL DEFAULT 'latest'::character varying,
 	created_by varchar NOT NULL,
-	updated_by varchar NULL
+	updated_by varchar NULL,
 );
 ALTER TABLE document_metadata ADD CONSTRAINT document_metadata_file_path_key UNIQUE (file_path);
 ALTER TABLE document_metadata ADD CONSTRAINT document_metadata_pkey PRIMARY KEY (id);

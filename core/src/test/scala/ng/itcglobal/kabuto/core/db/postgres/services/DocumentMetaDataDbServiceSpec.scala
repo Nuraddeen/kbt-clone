@@ -5,6 +5,7 @@ import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import cats.implicits.catsSyntaxTuple2Semigroupal
 import ng.itcglobal.kabuto._
 import core.db.postgres.services.DocumentMetadataDbService._
+import core.db.postgres.Tables.DocumentMetadata
 import core.db.postgres.DatabaseContext
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatest.BeforeAndAfterEach
@@ -51,6 +52,7 @@ class DocumentMetadataDbServiceSpec extends ScalaTestWithActorTestKit
 
   val docsList = Seq(documentMetadata, docuMeta2)
 //TODO
+/*
   override def beforeEach(): Unit = {
     val drop =
       sql"""DROP TABLE IF EXISTS document_metadata"""
@@ -80,7 +82,7 @@ class DocumentMetadataDbServiceSpec extends ScalaTestWithActorTestKit
       .transact(xa)
       .unsafeRunSync()
   }
-
+*/
   "DocumentMetaDbService" must {
 
     "insert new document meta into the database" in {

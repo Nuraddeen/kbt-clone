@@ -10,6 +10,9 @@ import io.getquill.{mirrorContextWithQueryProbing, MappedEncoding, SnakeCase, id
 import java.time.{LocalDate, LocalDateTime, LocalTime, ZoneId}
 import java.util.{Date, UUID}
 
+import  ng.itcglobal.kabuto._
+import core.db.postgres.Tables.DocumentMetadata
+
 
 trait DatabaseContext {
 
@@ -28,6 +31,7 @@ trait DatabaseContext {
 
 	val quillContext = new DoobieContext.Postgres(SnakeCase) with EncoderDecoder
 
+	
 }
 
 trait EncoderDecoder{
@@ -54,4 +58,7 @@ trait EncoderDecoder{
 
 	def fromLocalDateTimeToDateTime(dateTime: LocalDateTime): Date = java.sql.Timestamp.valueOf(dateTime);
 
+
+
+	
 }
