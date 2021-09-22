@@ -42,7 +42,6 @@ class DocumentProcessorRoutes(documentProcessorService: ActorRef[DocumentProcess
                   }
                 case Failure(exception) =>
                   failWith(throw new Exception("Unable to complete the request"))
-                  // complete(StatusCodes.NotFound -> s"unable to complete the request ${exception}")
             }
           }
         },

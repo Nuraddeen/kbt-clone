@@ -134,7 +134,7 @@ object FileManagerService {
       message match {
 
         case req: GetFileByPath =>
-          val fileDir = File(req.dirPath)
+          val fileDir = File(baseDirectory + req.dirPath)
           fileDir.isDirectory match {
             case true =>
               val bytes = fileDir.list.toList.map { tif: File =>

@@ -8,35 +8,45 @@ import better.files._
 import better.files.Dsl._
 
 import ng.itcglobal.kabuto._
-import core.util.Enum
+import core.util.{Config, Enum}
 
 import org.scalatest.wordspec.AnyWordSpecLike
 
 class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
-   val fileManager = testKit.spawn( FileManagerService(), "fileManagerService")
+   val fileManagerService = testKit.spawn( FileManagerService(), "fileManagerService")
    val probe       = testKit.createTestProbe[FileManagerService.FileResponse]()
-   val fileDestination = "data/xyz/"
-   val singleTiffFile  = "data/dms/com-23-56.tif"
-  import FileManagerService._
+   val fileString = "data:image/webp;base64,UklGRkIDAABXRUJQVlA4WAoAAAAgAAAAEgAAEQAASUNDUKACAAAAAAKgbGNtcwQwAABtbnRyUkdCIFhZWiAH5QAJAAEACgAaABJhY3NwQVBQTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9tYAAQAAAADTLWxjbXMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1kZXNjAAABIAAAAEBjcHJ0AAABYAAAADZ3dHB0AAABmAAAABRjaGFkAAABrAAAACxyWFlaAAAB2AAAABRiWFlaAAAB7AAAABRnWFlaAAACAAAAABRyVFJDAAACFAAAACBnVFJDAAACFAAAACBiVFJDAAACFAAAACBjaHJtAAACNAAAACRkbW5kAAACWAAAACRkbWRkAAACfAAAACRtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACQAAAAcAEcASQBNAFAAIABiAHUAaQBsAHQALQBpAG4AIABzAFIARwBCbWx1YwAAAAAAAAABAAAADGVuVVMAAAAaAAAAHABQAHUAYgBsAGkAYwAgAEQAbwBtAGEAaQBuAABYWVogAAAAAAAA9tYAAQAAAADTLXNmMzIAAAAAAAEMQgAABd7///MlAAAHkwAA/ZD///uh///9ogAAA9wAAMBuWFlaIAAAAAAAAG+gAAA49QAAA5BYWVogAAAAAAAAJJ8AAA+EAAC2xFhZWiAAAAAAAABilwAAt4cAABjZcGFyYQAAAAAAAwAAAAJmZgAA8qcAAA1ZAAAT0AAACltjaHJtAAAAAAADAAAAAKPXAABUfAAATM0AAJmaAAAmZwAAD1xtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAEcASQBNAFBtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJWUDggfAAAADAEAJ0BKhMAEgA+MRaIQyIhIRQGqCADBLKAVhfgQGkJLS4K03F2aq98AAD+/OmdvtxT9mtzo6TyHq6/4nzyRz0f5OWb0zDYLfmOvIo5h0eCyqzk96EgUTeEUC+RG8CdXFPA3PYfp/Cqqcf9rji60s/ppVusaT8yPEK6AAA="
+   val baseDirectory = Config.filesDirectory
+   val splittedTiffsPath = baseDirectory + "/test/splitted-tiffs"
+   val sampleTiffsPath = baseDirectory + "/test/sample-tiffs/"
 
-   val getFile = GetFilesByPath("data/xxx/", probe.ref)
+
+   //copy (or override sample tiffs into the main dir incase if they dont exists there)
+   File("data/test/sample-tiffs")
+    .copyTo(File(sampleTiffsPath), true)
+
+    //copy the sample single tiff file
+
+ File("data/test/single-tiff/")
+    .copyTo(File(baseDirectory+ "/test/single-tiff/"), true)
+
+  import FileManagerService._
 
   "the FileManagerService" must {
 
     "split a single tiff file into a dir of files" in {
-      rm(File(fileDestination))
-      val split = SplitSingleTiffFile(singleTiffFile, fileDestination, probe.ref)
-      fileManager ! split
+      rm(File(splittedTiffsPath))
+      val split = SplitSingleTiffFile(baseDirectory+ "/test/single-tiff/single.tif", splittedTiffsPath, probe.ref)
+      fileManagerService ! split
 
       probe.expectMessage(FileProcessOK)
     }
 
     "retrieve files from a dir and return a base64 string image of all images in the dir" in {
-       val dirPath = "data/xxx"
-      fileManager ! GetFilesByPath(dirPath, probe.ref)
+      fileManagerService ! GetFileByPath("/test/sample-tiffs/", probe.ref)
 
-      val bytesString = File(dirPath).list.toList.map{ tif: File =>
+      val bytesString = File(sampleTiffsPath).list.toList.map{ tif: File =>
         val byte = FileManagerService.resizeTiff(tif)
         java.util.Base64.getEncoder.encodeToString(byte)
       }
@@ -54,7 +64,7 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
         replyTo    = probe.ref
       )
 
-      fileManager ! appendFile
+      fileManagerService ! appendFile
 
       probe.expectMessage(FileProcessOK)
 
@@ -71,7 +81,7 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
         replyTo    = probe.ref
       )
 
-      fileManager ! appendFile
+      fileManagerService ! appendFile
 
       probe.expectMessage(FileResponseError("invalid file directory"))
     }
@@ -86,7 +96,7 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
         replyTo    = probe.ref
       )
 
-      fileManager ! appendFile
+      fileManagerService ! appendFile
 
       probe.expectMessage(FileResponseError("invalid file format gif"))
     }
@@ -106,5 +116,78 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
       assert(FileManagerService.getImageExtension(fileBytes).contains(ImageTypes.Tiff))
 
     }
+
+     "successfully save a valid file to a directory" in {
+
+      val filePath = baseDirectory + "/test/"
+       
+      val saveFileToDir = SaveFileToDir(
+      filename = "Test-File-Webp",
+      fileString = fileString,
+      filePath = filePath,
+      extension = Some("webp"),
+      replyTo    = probe.ref
+      )
+
+      fileManagerService ! saveFileToDir
+      probe.expectMessage(FileSavedResponse(filePath+ "Test-File-Webp.webp"))
+    }
+
+
+    "not save an invalid file string" in {
+
+        val filePath =  baseDirectory +"/test/"
+        
+        val saveFileToDir = SaveFileToDir(
+        filename = "Test-File-Webp",
+        fileString = "invalid file string",
+        filePath = filePath,
+        extension = Some("webp"),
+        replyTo    = probe.ref
+        )
+
+        fileManagerService ! saveFileToDir
+        probe.expectMessage(FileResponseError("could not write file"))
+      }
+
+
+    "not save a file with invalid extension" in {
+
+        val filePath = baseDirectory +"/test/"
+        
+        val saveFileToDir = SaveFileToDir(
+        filename = "Test-File-Webp",
+        fileString = fileString,
+        filePath = filePath,
+        extension = Some("xxx"),
+        replyTo    = probe.ref
+        )
+
+        fileManagerService ! saveFileToDir
+        probe.expectMessage(FileResponseError("unknown file format"))
+      }
+
+
+  "successfully retrieve the file string of a saved file" in {
+      val filePath =  baseDirectory +"/test/"
+      val saveFileToDir = SaveFileToDir(
+          filename = "Test-File-Webp",
+          fileString = fileString,
+          filePath = filePath,
+          extension = Some("webp"),
+          replyTo    = probe.ref
+      )
+
+      fileManagerService ! saveFileToDir
+      probe.expectMessage(FileSavedResponse(filePath+ "Test-File-Webp.webp"))
+   
+      val expectedFileString = Base64.getEncoder.encodeToString(File(filePath+ "Test-File-Webp.webp").byteArray)
+
+
+      fileManagerService ! RetrieveFileString(filePath+ "Test-File-Webp.webp", probe.ref)
+      probe.expectMessage(FileRetrievedResponse(expectedFileString))
+      
+
+      }
   }
 }
