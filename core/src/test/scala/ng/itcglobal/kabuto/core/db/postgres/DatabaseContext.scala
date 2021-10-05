@@ -40,3 +40,4 @@ trait EncoderDecoder{
 //	implicit val jodaLocalDateTimeEncoder = MappedEncoding[LocalDateTime, Date](_.toDate)
 //	implicit val jodaDurationEncoder      = MappedEncoding[Duration, Long](_.getMillis)
 }
+//

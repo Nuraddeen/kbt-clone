@@ -36,29 +36,4 @@ trait DatabaseContext {
 
 trait EncoderDecoder{
 	implicit val uuidMeta: Meta[UUID] = Meta[String].timap(UUID.fromString)(_.toString)
-
-	implicit val jodaLocalDateTimeDecoder = mirrorContextWithQueryProbing.MappedEncoding[Date, LocalDateTime](fromDateToLocalDateTime)
-	implicit val jodaLocalDateTimeEncoder = MappedEncoding[LocalDateTime, Date](fromLocalDateTimeToDateTime)
-
-//	implicit val jodaDurationDecoder      = MappedEncoding(Duration.millis)
-//	implicit val jodaDurationEncoder      = MappedEncoding[Duration, Long](_.getMillis)
-
-//	implicit val jodaDurationEncoder      = MappedEncoding[Duration, Long](_.getMillis)
-//	implicit val jodaDurationDecoder      = MappedEncoding(Duration.millis)
-
-	def fromDateToLocalDateTime(date: Date): LocalDateTime = {
-		val local: LocalDate =
-			date
-				.toInstant
-				.atZone(ZoneId.systemDefault())
-				.toLocalDate;
-
-		LocalDateTime.of(local, LocalTime.now)
-	}
-
-	def fromLocalDateTimeToDateTime(dateTime: LocalDateTime): Date = java.sql.Timestamp.valueOf(dateTime);
-
-
-
-	
 }

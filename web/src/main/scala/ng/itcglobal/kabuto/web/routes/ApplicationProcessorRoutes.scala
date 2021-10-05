@@ -26,7 +26,7 @@ class ApplicationProcessorRoutes(fileMangerService: ActorRef[FileManagerService.
         concat(
           path(Segment / Segment) { (applicationId: String, documentName: String) =>
             get {
-              val futFileResponse: Future[FileManagerService.FileResponse] = fileMangerService
+              val futFileResponse: Future[FileManagerService.Response] = fileMangerService
                 .ask(FileManagerService.GetSingleDocumentFromApplication(s"$applicationId/$documentName", _))
 
               onComplete(futFileResponse) {
@@ -45,7 +45,7 @@ class ApplicationProcessorRoutes(fileMangerService: ActorRef[FileManagerService.
           },
           path(Segment) { applicationId: String =>
             get {
-              val futFileResponse: Future[FileManagerService.FileResponse] = fileMangerService.ask(FileManagerService.GetFilesByPath(applicationId, _))
+              val futFileResponse: Future[FileManagerService.Response] = fileMangerService.ask(FileManagerService.GetFilesByPath(applicationId, _))
 
               onComplete(futFileResponse) {
                 case Success(fileResponse) =>
@@ -63,7 +63,7 @@ class ApplicationProcessorRoutes(fileMangerService: ActorRef[FileManagerService.
           },
           pathEndOrSingleSlash {
             get {
-              val futRes: Future[FileManagerService.FileResponse] = fileMangerService.ask(FileManagerService.GetAllDirectories(_))
+              val futRes: Future[FileManagerService.Response] = fileMangerService.ask(FileManagerService.GetAllDirectories(_))
 
               onComplete(futRes) {
                 case Success(filesRes) =>

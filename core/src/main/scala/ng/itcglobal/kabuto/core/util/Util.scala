@@ -13,7 +13,7 @@ import  core.util.Enum.HttpResponseStatus
 
 object Util {
 
-  case class BetasoftApiHttpResponse(
+  case class KabutoApiHttpResponse(
     status: HttpResponseStatus.Value,
     description: String,
     code: Option[Int]     = None,

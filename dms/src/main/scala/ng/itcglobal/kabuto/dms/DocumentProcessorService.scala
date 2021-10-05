@@ -51,26 +51,22 @@ object DocumentProcessorService extends JsonSupport {
 
   }
 
-  sealed trait ProcessDocumentCommand
+  sealed trait  Command
   case class AddDocument(
       documentDto: DocumentDto,
-      replyTo: ActorRef[ProcessDocumentResponse]
-  ) extends ProcessDocumentCommand
+      replyTo: ActorRef[KabutoApiHttpResponse]
+  ) extends Command
   case class GetDocument(
       fileNumber: String,
       fileType: String,
-      replyTo: ActorRef[ProcessDocumentResponse]
-  ) extends ProcessDocumentCommand
+      replyTo: ActorRef[KabutoApiHttpResponse]
+  ) extends Command
   case class DeleteDocument(
       docId: UUID,
       filePath: String,
-      replyTo: ActorRef[ProcessDocumentResponse]
-  ) extends ProcessDocumentCommand
+      replyTo: ActorRef[KabutoApiHttpResponse]
+  ) extends Command
 
-  sealed trait ProcessDocumentResponse
-  case class DataResponse(response: BetasoftApiHttpResponse)
-      extends ProcessDocumentResponse
-  case class ErrorResponse(message: String) extends ProcessDocumentResponse
 
   implicit val timeout: Timeout = 3.seconds
 
@@ -79,7 +75,7 @@ object DocumentProcessorService extends JsonSupport {
         DocumentMetadataDbService.DocumentMetadataCommand
       ],
       fileManagerServiceActor: ActorRef[FileManagerService.FileCommand]
-  ): Behavior[ProcessDocumentCommand] =
+  ): Behavior[Command] =
     Behaviors.receive { (context, message) =>
       implicit val ec: ExecutionContext = context.executionContext
       implicit val scheduler: Scheduler = context.system.scheduler
@@ -131,38 +127,63 @@ object DocumentProcessorService extends JsonSupport {
                             documentMetadataDbServiceActor .ask(DeleteDocumentMetadata(metadata.id, _))
                           }
 
-                          req.replyTo ! DataResponse(
-                            BetasoftApiHttpResponse(
+                          req.replyTo ! 
+                            KabutoApiHttpResponse(
                               status = HttpResponseStatus.Success,
                               description = "Document Saved",
                               code = Some(HttpResponseStatus.Success.id)
                             )
-                          )
+                          
                         case _ =>
                           // delete the file which was already saved sinces its metdata couldn't be saved
                             fileManagerServiceActor.ask( DeleteFile(fileSavedRes.fullFilePath, _))                         
-                            req.replyTo ! ErrorResponse(
-                            s"Could not save file meta data"
-                          )
+                            req.replyTo !  
+                            KabutoApiHttpResponse(
+                              status = HttpResponseStatus.Failed,
+                              description = "Could not save file meta data",
+                              code = Some(HttpResponseStatus.Failed.id)
+                            )
                       }
+                    
+                    
+                      case (Success(res: FileResponseError)) => 
+
+                      req.replyTo ! 
+                        KabutoApiHttpResponse(
+                              status = HttpResponseStatus.Failed,
+                              description = res.msg,
+                              code = Some(HttpResponseStatus.Failed.id)
+                            )
+
+                    
                     case _ =>
-                      req.replyTo ! ErrorResponse(
-                        s"Could not save file to disk"
-                      )
+                      
+                      req.replyTo ! 
+                        KabutoApiHttpResponse(
+                              status = HttpResponseStatus.Failed,
+                              description = "Could not save file to disk",
+                              code = Some(HttpResponseStatus.Failed.id)
+                            )
               }
 
             case Failure(error) => //error fetching exisitn metadata
               log.error(
                 s"Could not retrieve existing metadata $error, for the request $req"
               )
-              req.replyTo ! ErrorResponse(
-                "Could not retrieve existing file metadata"
-              )
+              req.replyTo !  
+                  KabutoApiHttpResponse(
+                              status = HttpResponseStatus.Failed,
+                              description =   "Could not retrieve existing file metadata",
+                              code = Some(HttpResponseStatus.Failed.id)
+                            )
 
             case _ => //any other error for exisitng meta data retrieval
-              req.replyTo ! ErrorResponse(
-                s"Could not retrieve existing file metadata"
-              )
+              req.replyTo !  
+               KabutoApiHttpResponse(
+                              status = HttpResponseStatus.Failed,
+                              description = "Could not retrieve existing file metadata",
+                              code = Some(HttpResponseStatus.Failed.id)
+                            )
           }
 
           Behaviors.same
@@ -174,16 +195,14 @@ object DocumentProcessorService extends JsonSupport {
             case Success(
                   DocumentMetadataRetrieved(Nil)
                 ) => //no metadata was found
-              req.replyTo ! DataResponse(
-                BetasoftApiHttpResponse(
+              req.replyTo !  
+                KabutoApiHttpResponse(
                   status = HttpResponseStatus.NotFound,
                   description = "No document metadata found",
                   code = Some(HttpResponseStatus.NotFound.id)
-                )
+                
               )
-            case Success(
-                  DocumentMetadataRetrieved(docMetadataList)
-                ) => //meta data found
+            case Success( DocumentMetadataRetrieved(docMetadataList) ) => //meta data found
               val docMetaData = docMetadataList.head
 
               fileManagerServiceActor.ask(
@@ -205,39 +224,42 @@ object DocumentProcessorService extends JsonSupport {
                     createdBy = docMetaData.createdBy,
                     updatedBy = docMetaData.updatedBy
                   )
-                  req.replyTo ! DataResponse(
-                    BetasoftApiHttpResponse(
+                  req.replyTo !
+                    KabutoApiHttpResponse(
                       status = HttpResponseStatus.Success,
                       description = "Document retrieved",
                       code = Some(HttpResponseStatus.Success.id),
                       data = Some(documentDto.toJson)
                     )
-                  )
+                  
 
                 case Success(FileResponseError(msg)) =>
-                  req.replyTo ! DataResponse(
-                    BetasoftApiHttpResponse(
+                  req.replyTo !
+                    KabutoApiHttpResponse(
                       status = HttpResponseStatus.Failed,
                       description = msg,
                       code = Some(HttpResponseStatus.Failed.id)
                     )
-                  )
+                  
                 case Failure(exception) =>
                   log.error(
                     s"Could not retrieve file string $exception, for the request $req"
                   )
-                  req.replyTo ! ErrorResponse(
-                    "Could not retrieve file string"
-                  )
+                  req.replyTo !  
+                    KabutoApiHttpResponse(
+                              status = HttpResponseStatus.Failed,
+                              description = "Could not retrieve file string",
+                              code = Some(HttpResponseStatus.Failed.id)
+                            )
 
                 case _ =>
-                  req.replyTo ! DataResponse(
-                    BetasoftApiHttpResponse(
+                  req.replyTo !
+                    KabutoApiHttpResponse(
                       status = HttpResponseStatus.Failed,
                       description = "Could not retrive file. Please try again",
                       code = Some(HttpResponseStatus.Failed.id)
                     )
-                  )
+                  
 
               }
 
@@ -245,14 +267,20 @@ object DocumentProcessorService extends JsonSupport {
               log.error(
                 s"Could not retrieve file string $exception, for the request $req"
               )
-              req.replyTo ! ErrorResponse(
-                "Could not retrieve file string"
-              )
+              req.replyTo !  
+               KabutoApiHttpResponse(
+                              status = HttpResponseStatus.Failed,
+                              description = "Could not retrieve file string",
+                              code = Some(HttpResponseStatus.Failed.id)
+                            )
 
             case _ =>
-              req.replyTo ! ErrorResponse(
-                "Error retrieving document metadata, please try again later."
-              )
+              req.replyTo !  
+                  KabutoApiHttpResponse(
+                              status = HttpResponseStatus.Failed,
+                              description =  "Error retrieving document metadata, please try again later.",
+                              code = Some(HttpResponseStatus.Failed.id)
+                            )
 
           }
 
@@ -267,50 +295,56 @@ object DocumentProcessorService extends JsonSupport {
                 DeleteDocumentMetadata(req.docId, _)
               ) onComplete {
                 case Success(DocumentMetadataProcessed) =>
-                  req.replyTo ! DataResponse(
-                    BetasoftApiHttpResponse(
+                  req.replyTo ! 
+                    KabutoApiHttpResponse(
                       status = HttpResponseStatus.Success,
                       description = "Document deleted",
                       code = Some(HttpResponseStatus.Success.id)
                     )
-                  )
+                  
                 case Success(DocumentMetadataFailure(reason)) =>
-                  req.replyTo ! DataResponse(
-                    BetasoftApiHttpResponse(
+                  req.replyTo ! 
+                    KabutoApiHttpResponse(
                       status = HttpResponseStatus.Failed,
                       description = reason,
                       code = Some(HttpResponseStatus.Failed.id)
-                    )
+                    
                   )
                 case Failure(error) =>
-                  req.replyTo ! ErrorResponse(
-                    "Error deleting document metadata, please try again later."
-                  )
+                  req.replyTo !  
+                   KabutoApiHttpResponse(
+                              status = HttpResponseStatus.Failed,
+                              description =  "Error deleting document metadata, please try again later.",
+                              code = Some(HttpResponseStatus.Failed.id)
+                            )
                 case _ =>
-                  req.replyTo ! DataResponse(
-                    BetasoftApiHttpResponse(
+                  req.replyTo ! 
+                    KabutoApiHttpResponse(
                       status = HttpResponseStatus.Failed,
                       description =
                         "Unknown error occurred during metdata deletion, please try again later",
                       code = Some(HttpResponseStatus.Failed.id)
-                    )
+                    
                   )
 
               }
 
             case Failure(error) =>
-              req.replyTo ! ErrorResponse(
-                "Error deleting file from disk, please try again later."
-              )
+              req.replyTo !  
+                 KabutoApiHttpResponse(
+                              status = HttpResponseStatus.Failed,
+                              description =  "Error deleting file from disk, please try again later.",
+                              code = Some(HttpResponseStatus.Failed.id)
+                            )
 
             case _ =>
-              req.replyTo ! DataResponse(
-                BetasoftApiHttpResponse(
+              req.replyTo !  
+                KabutoApiHttpResponse(
                   status = HttpResponseStatus.Failed,
                   description = "Could not delete file from disk",
                   code = Some(HttpResponseStatus.Failed.id)
                 )
-              )
+              
           }
           Behaviors.same
       }

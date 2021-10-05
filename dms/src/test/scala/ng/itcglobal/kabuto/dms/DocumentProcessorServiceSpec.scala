@@ -18,7 +18,7 @@ import core.db.postgres.DatabaseContext
 import core.db.postgres.services._
 import core.db.postgres.Tables._
 import core.util.Enum.HttpResponseStatus
-import core.util.Util.BetasoftApiHttpResponse 
+import core.util.Util.KabutoApiHttpResponse 
 import DocumentProcessorService._
 import DocumentMetadataDbService._
 
@@ -37,9 +37,10 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
   val docMetaDataDbService = testKit.spawn(DocumentMetadataDbService(), "doc-metadata-db-service")
   val docProcessorService = testKit.spawn(DocumentProcessorService(docMetaDataDbService, fileManagerService), "doc-processor-service")
 
-  val docProcessorProbe  = testKit.createTestProbe[DocumentProcessorService.ProcessDocumentResponse]()
+  //val kabutoApiHttpResProbe  = testKit.createTestProbe[DocumentProcessorService.Response]()
   val docMetadataDbProbe = testKit.createTestProbe[DocumentMetadataDbService.DocumentMetadataResponse]()
-  val fileManagerProbe   = testKit.createTestProbe[FileManagerService.FileResponse]()
+  val fileManagerProbe   = testKit.createTestProbe[FileManagerService.Response]()
+  val kabutoApiHttpResProbe = testKit.createTestProbe[KabutoApiHttpResponse]()
 
   implicit val ec = testKit.system.executionContext
   implicit val scheduler: Scheduler = testKit.system.scheduler
@@ -48,7 +49,7 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
   val fileString = "data:image/webp;base64,UklGRkIDAABXRUJQVlA4WAoAAAAgAAAAEgAAEQAASUNDUKACAAAAAAKgbGNtcwQwAABtbnRyUkdCIFhZWiAH5QAJAAEACgAaABJhY3NwQVBQTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9tYAAQAAAADTLWxjbXMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1kZXNjAAABIAAAAEBjcHJ0AAABYAAAADZ3dHB0AAABmAAAABRjaGFkAAABrAAAACxyWFlaAAAB2AAAABRiWFlaAAAB7AAAABRnWFlaAAACAAAAABRyVFJDAAACFAAAACBnVFJDAAACFAAAACBiVFJDAAACFAAAACBjaHJtAAACNAAAACRkbW5kAAACWAAAACRkbWRkAAACfAAAACRtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACQAAAAcAEcASQBNAFAAIABiAHUAaQBsAHQALQBpAG4AIABzAFIARwBCbWx1YwAAAAAAAAABAAAADGVuVVMAAAAaAAAAHABQAHUAYgBsAGkAYwAgAEQAbwBtAGEAaQBuAABYWVogAAAAAAAA9tYAAQAAAADTLXNmMzIAAAAAAAEMQgAABd7///MlAAAHkwAA/ZD///uh///9ogAAA9wAAMBuWFlaIAAAAAAAAG+gAAA49QAAA5BYWVogAAAAAAAAJJ8AAA+EAAC2xFhZWiAAAAAAAABilwAAt4cAABjZcGFyYQAAAAAAAwAAAAJmZgAA8qcAAA1ZAAAT0AAACltjaHJtAAAAAAADAAAAAKPXAABUfAAATM0AAJmaAAAmZwAAD1xtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAEcASQBNAFBtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJWUDggfAAAADAEAJ0BKhMAEgA+MRaIQyIhIRQGqCADBLKAVhfgQGkJLS4K03F2aq98AAD+/OmdvtxT9mtzo6TyHq6/4nzyRz0f5OWb0zDYLfmOvIo5h0eCyqzk96EgUTeEUC+RG8CdXFPA3PYfp/Cqqcf9rji60s/ppVusaT8yPEK6AAA="
   val webpFileExtension = "webp"
   val invalidFileExtension = "zzz"
-  val fileNumber = "Test01"
+  val fileNumber = "Test 01"
   val fileType = "Test File"
 
   val documentDto = DocumentDto(
@@ -60,16 +61,11 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
     createdBy = "TestScript"
   )
 
-  val savedResponse = DocumentProcessorService.DataResponse(
-                 BetasoftApiHttpResponse(
-                    status      = HttpResponseStatus.Success,
+  val savedResponse =  KabutoApiHttpResponse(
+                    status = HttpResponseStatus.Success,
                     description = "Document Saved",
-                    code        = Some(HttpResponseStatus.Success.id)
+                    code = Some(HttpResponseStatus.Success.id)
                   )
-        )
-
-
-  
 
   
 
@@ -83,19 +79,27 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
         .transact(xa)
         .unsafeRunSync()
 
+     
     val testFilesDir = File(documentDto.generateFilePath())
-    testFilesDir.clear()//delete all files in the path
+    testFilesDir.delete()//delete all files in the path
   }
 
 
-
+/**
+ *  delete existing
+  * put into kabuto
+  * 
+  * application.conf
+  * ./run.sh 
+  *
+  */
 
   "Document Processor Service" should {
     "successfully save new file request" in {
 
-      docProcessorService ! AddDocument(documentDto, docProcessorProbe.ref)
+      docProcessorService ! AddDocument(documentDto, kabutoApiHttpResProbe.ref)
       
-      docProcessorProbe.expectMessage(savedResponse)
+      kabutoApiHttpResProbe.expectMessage(savedResponse)
 
     }
 
@@ -109,9 +113,15 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
                   title = "Test File",
                   fileExtension = invalidFileExtension,
                   createdBy = "TestScript"
-                ), docProcessorProbe.ref)
+                ), kabutoApiHttpResProbe.ref)
                 
-            docProcessorProbe.expectMessage(DocumentProcessorService.ErrorResponse(s"Could not save file to disk"))
+            kabutoApiHttpResProbe.expectMessage(
+               KabutoApiHttpResponse(
+                              status = HttpResponseStatus.Failed,
+                              description = "Unknown file format",
+                              code = Some(HttpResponseStatus.Failed.id)
+                  )
+            )
 
     }
 
@@ -125,9 +135,15 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
                 title = "Test File",
                 fileExtension = invalidFileExtension,
                 createdBy = "TestScript"
-              ), docProcessorProbe.ref)
+              ), kabutoApiHttpResProbe.ref)
 
-        docProcessorProbe.expectMessage(DocumentProcessorService.ErrorResponse("Could not save file to disk"))
+        kabutoApiHttpResProbe.expectMessage(
+              KabutoApiHttpResponse(
+                      status = HttpResponseStatus.Failed,
+                      description = "Could not write file",
+                      code = Some(HttpResponseStatus.Failed.id)
+          )
+        )
        }
 
 
@@ -138,15 +154,15 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
           //add again
           //prove that the first document does not exists by getting it
 
-          docProcessorService ! AddDocument(documentDto, docProcessorProbe.ref)
-          docProcessorProbe.expectMessage(savedResponse)
+          docProcessorService ! AddDocument(documentDto, kabutoApiHttpResProbe.ref)
+          kabutoApiHttpResProbe.expectMessage(savedResponse)
 
           //there is no way to get the uuid that was saved and it is required to make asserion here
          // docMetaDataDbService ! RetrieveDocumentMetadata(documentDto.fileNumber, documentDto.fileType, docMetadataDbProbe.ref)
           
 
-          docProcessorService ! AddDocument(documentDto, docProcessorProbe.ref)
-          docProcessorProbe.expectMessage(savedResponse)
+          docProcessorService ! AddDocument(documentDto, kabutoApiHttpResProbe.ref)
+          kabutoApiHttpResProbe.expectMessage(savedResponse)
 
 
         }
@@ -154,10 +170,10 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
 
 
       "retrieve a saved document with valid file number and file types" in {
-                 docProcessorService ! AddDocument(documentDto, docProcessorProbe.ref)
-                 docProcessorProbe.expectMessage(savedResponse)
+                 docProcessorService ! AddDocument(documentDto, kabutoApiHttpResProbe.ref)
+                 kabutoApiHttpResProbe.expectMessage(savedResponse)
 
-                docProcessorService ! GetDocument(documentDto.fileNumber, documentDto.fileType, docProcessorProbe.ref)
+                docProcessorService ! GetDocument(documentDto.fileNumber, documentDto.fileType, kabutoApiHttpResProbe.ref)
                 val docData = DocumentDto(
                     fileString =  fileString,
                     fileNumber = fileNumber,
@@ -169,15 +185,16 @@ class DocumentProcessorServiceSpec extends ScalaTestWithActorTestKit
                   )
 
 
-                  docProcessorProbe.expectMessage(DocumentProcessorService.DataResponse(
-                                   BetasoftApiHttpResponse(
+                  kabutoApiHttpResProbe.expectMessage(
+                                   KabutoApiHttpResponse(
                                       status = HttpResponseStatus.Success,
                                       description = "Document retrieved",
                                       code = Some(HttpResponseStatus.Success.id),
                                       data = Some(docData.toJson)
                                     )
-                                    )
-                          )
+                  )
+                                    
+                          
                }
   }
 

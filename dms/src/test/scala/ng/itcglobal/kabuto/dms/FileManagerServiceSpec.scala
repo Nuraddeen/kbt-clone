@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
    val fileManagerService = testKit.spawn( FileManagerService(), "fileManagerService")
-   val probe       = testKit.createTestProbe[FileManagerService.FileResponse]()
+   val probe       = testKit.createTestProbe[FileManagerService.Response]()
    val fileString = "data:image/webp;base64,UklGRkIDAABXRUJQVlA4WAoAAAAgAAAAEgAAEQAASUNDUKACAAAAAAKgbGNtcwQwAABtbnRyUkdCIFhZWiAH5QAJAAEACgAaABJhY3NwQVBQTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9tYAAQAAAADTLWxjbXMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1kZXNjAAABIAAAAEBjcHJ0AAABYAAAADZ3dHB0AAABmAAAABRjaGFkAAABrAAAACxyWFlaAAAB2AAAABRiWFlaAAAB7AAAABRnWFlaAAACAAAAABRyVFJDAAACFAAAACBnVFJDAAACFAAAACBiVFJDAAACFAAAACBjaHJtAAACNAAAACRkbW5kAAACWAAAACRkbWRkAAACfAAAACRtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACQAAAAcAEcASQBNAFAAIABiAHUAaQBsAHQALQBpAG4AIABzAFIARwBCbWx1YwAAAAAAAAABAAAADGVuVVMAAAAaAAAAHABQAHUAYgBsAGkAYwAgAEQAbwBtAGEAaQBuAABYWVogAAAAAAAA9tYAAQAAAADTLXNmMzIAAAAAAAEMQgAABd7///MlAAAHkwAA/ZD///uh///9ogAAA9wAAMBuWFlaIAAAAAAAAG+gAAA49QAAA5BYWVogAAAAAAAAJJ8AAA+EAAC2xFhZWiAAAAAAAABilwAAt4cAABjZcGFyYQAAAAAAAwAAAAJmZgAA8qcAAA1ZAAAT0AAACltjaHJtAAAAAAADAAAAAKPXAABUfAAATM0AAJmaAAAmZwAAD1xtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAEcASQBNAFBtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJWUDggfAAAADAEAJ0BKhMAEgA+MRaIQyIhIRQGqCADBLKAVhfgQGkJLS4K03F2aq98AAD+/OmdvtxT9mtzo6TyHq6/4nzyRz0f5OWb0zDYLfmOvIo5h0eCyqzk96EgUTeEUC+RG8CdXFPA3PYfp/Cqqcf9rji60s/ppVusaT8yPEK6AAA="
    val baseDirectory = Config.filesDirectory
    val splittedTiffsPath = baseDirectory + "/test/splitted-tiffs"
@@ -83,7 +83,7 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
 
       fileManagerService ! appendFile
 
-      probe.expectMessage(FileResponseError("invalid file directory"))
+      probe.expectMessage(FileResponseError("Invalid file directory"))
     }
 
     "assert that wrong tiff file will not be saved" in {
@@ -98,7 +98,7 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
 
       fileManagerService ! appendFile
 
-      probe.expectMessage(FileResponseError("invalid file format gif"))
+      probe.expectMessage(FileResponseError("Invalid file format gif"))
     }
 
     "test image file format in a base64 bit string " in {
@@ -147,7 +147,7 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
         )
 
         fileManagerService ! saveFileToDir
-        probe.expectMessage(FileResponseError("could not write file"))
+        probe.expectMessage(FileResponseError("Could not write file"))
       }
 
 
@@ -164,7 +164,7 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
         )
 
         fileManagerService ! saveFileToDir
-        probe.expectMessage(FileResponseError("unknown file format"))
+        probe.expectMessage(FileResponseError("Unknown file format"))
       }
 
 

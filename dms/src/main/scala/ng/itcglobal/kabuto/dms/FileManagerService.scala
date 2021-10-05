@@ -35,32 +35,32 @@ object FileManagerService {
      filename: String,
      fileString: String,
      filePath: String,
-     replyTo: ActorRef[FileResponse]) extends FileCommand
+     replyTo: ActorRef[Response]) extends FileCommand
 
 
-  final case class GetAllDirectories(replyTo: ActorRef[FileResponse])
+  final case class GetAllDirectories(replyTo: ActorRef[Response])
       extends FileCommand
   final case class GetFilesByPath(
       dirPath: String,
-      replyTo: ActorRef[FileResponse]
+      replyTo: ActorRef[Response]
   ) extends FileCommand
   final case class SplitSingleTiffFile(
       tif: String,
       outputDir: String,
-      replyTo: ActorRef[FileResponse]
+      replyTo: ActorRef[Response]
   ) extends FileCommand
   final case class GetSingleDocumentFromApplication(
       filePath: String,
-      replyTo: ActorRef[FileResponse]
+      replyTo: ActorRef[Response]
   ) extends FileCommand
 
   final case class GetFileByPath(
       dirPath: String,
-      replyTo: ActorRef[FileResponse]
+      replyTo: ActorRef[Response]
   ) extends FileCommand
   final case class GetSinglePageFromFile(
       filePath: String,
-      replyTo: ActorRef[FileResponse]
+      replyTo: ActorRef[Response]
   ) extends FileCommand
 
   final case class SaveFileToDir(
@@ -68,31 +68,31 @@ object FileManagerService {
       fileString: String,
       filePath: String,
       extension: Option[String] = None,
-      replyTo: ActorRef[FileResponse]
+      replyTo: ActorRef[Response]
   ) extends FileCommand
 
 
   final case class RetrieveFileString(
       filePath: String,
-      replyTo: ActorRef[FileResponse]
+      replyTo: ActorRef[Response]
   ) extends FileCommand
 
   final case class DeleteFile(
         filePath: String,
-        replyTo: ActorRef[FileResponse]
+        replyTo: ActorRef[Response]
     ) extends FileCommand
 
-  sealed trait FileResponse
-  final case object FileProcessOK extends FileResponse
-  final case class FileResponseError(msg: String) extends FileResponse
-  final case class FileSearchResponse(dir: List[String]) extends FileResponse
+  sealed trait Response
+  final case object FileProcessOK extends Response
+  final case class FileResponseError(msg: String) extends Response
+  final case class FileSearchResponse(dir: List[String]) extends Response
   final case class AllFilesFetchedResponse(dir: List[Application])
-      extends FileResponse
+      extends Response
   final case class SingleFileSearchResponse(fileName: String)
-      extends FileResponse
+      extends Response
   
-  final case class FileSavedResponse (fullFilePath: String)  extends FileResponse
-  final case class FileRetrievedResponse (fileString: String)  extends FileResponse
+  final case class FileSavedResponse (fullFilePath: String)  extends Response
+  final case class FileRetrievedResponse (fileString: String)  extends Response
 
 
   case class Application(name: String, lastModified: String)
@@ -175,31 +175,32 @@ object FileManagerService {
                       newFile.writeBytes(bytes.iterator)
                       req.replyTo ! FileProcessOK
                     case _ => 
-                      req.replyTo ! FileResponseError(s"invalid file format $x")
+                      req.replyTo ! FileResponseError(s"Invalid file format $x")
 
                   }
                 case None =>
-                  log.error(s"unknown file format {}", req)
-                  req.replyTo ! FileResponseError(s"unknown file format")
+                  log.error(s"Unknown file format {}", req)
+                  req.replyTo ! FileResponseError(s"Unknown file format")
               }
 
             case Failure(er) => 
-              log.error(s"could not write file {} {}", er, req)
-              req.replyTo ! FileResponseError(s"could not write file")
+              log.error(s"Could not write file {} {}", er, req)
+              req.replyTo ! FileResponseError(s"Could not write file")
           }
           Behaviors.same
         } else {
-          log.error(s"invalid file directory {}", req.filePath)
-          req.replyTo ! FileResponseError("invalid file directory")
+          log.error(s"Invalid file directory {}", req.filePath)
+          req.replyTo ! FileResponseError("Invalid file directory")
           Behaviors.same
         }
 
         case req: SaveFileToDir =>
           val fileDir: File = File(req.filePath)
 
-          if(!fileDir.isRegularFile && !fileDir.isDirectory) {
+         if(!fileDir.isRegularFile && !fileDir.isDirectory) {
               mkdirs(fileDir)
           }
+
 
           if (fileDir.isDirectory) {
             Try (Base64.getMimeDecoder.decode(req.fileString)) match {
@@ -213,18 +214,18 @@ object FileManagerService {
                     req.replyTo ! FileSavedResponse(newFile.path.toString)
                    
                   case None =>
-                    log.error(s"unknown file format for the extension ${req.extension} for the file ${req.fileString.take(20)} ... ")
-                    req.replyTo ! FileResponseError("unknown file format")
+                    log.error(s"Unknown file format for the extension ${req.extension} for the file ${req.fileString.take(20)} ... ")
+                    req.replyTo ! FileResponseError("Unknown file format")
                 }
 
               case Failure(error) =>
-                log.error(s"could not decode file {}... {}", req.fileString.take(20), error)
-                req.replyTo ! FileResponseError("could not write file")
+                log.error(s"Could not decode file {}... {}", req.fileString.take(20), error)
+                req.replyTo ! FileResponseError("Could not write file")
             }
             Behaviors.same
           } else {
-            log.error(s"invalid file directory {}", req.filePath)
-            req.replyTo ! FileResponseError(s"invalid file directory")
+            log.error(s"Invalid file directory {}", req.filePath)
+            req.replyTo ! FileResponseError(s"Invalid file directory")
             Behaviors.same
           }
 
@@ -271,7 +272,7 @@ object FileManagerService {
 
           if (document.notExists || document.isDirectory)
             req.replyTo ! FileResponseError(
-              s"document '${req.filePath}' does not exists"
+              s"Document '${req.filePath}' does not exists"
             )
           else {
             val documentImage =

@@ -10,7 +10,7 @@ import spray.json.RootJsonFormat
 
 import ng.itcglobal.kabuto._
 import core.util.Enum.HttpResponseStatus
-import core.util.Util.BetasoftApiHttpResponse
+import core.util.Util.KabutoApiHttpResponse
 
 
 import FileManagerService.Application
@@ -63,9 +63,6 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
 
   }
 
-  implicit val httpResponse     = jsonFormat4(BetasoftApiHttpResponse)
-  implicit val docProcResponse  = jsonFormat1(DocumentProcessorService.DataResponse)
-  implicit val errorResponse    = jsonFormat1(DocumentProcessorService.ErrorResponse)
-
+  implicit val httpResponse     = jsonFormat4(KabutoApiHttpResponse)
 
 }

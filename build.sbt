@@ -14,6 +14,7 @@ lazy val sharedSettings = Seq(
   )
 )
 
+
 lazy val kabuto = (project in file("."))
   .aggregate(core, web, dms)
   .settings()
@@ -22,7 +23,7 @@ lazy val web = (project in file("web"))
   .dependsOn(core, dms)
   .settings(
     sharedSettings,
-    mainClass in assembly := Some("ng.itcglobal.kabuto.web.Main")
+    mainClass in assembly := Some("ng.itcglobal.kabuto.web.Server")
   )
 
 lazy val dms = (project in file("dms"))
@@ -44,8 +45,7 @@ lazy val core = (project in file("core")).settings(
     "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
     "org.scalatest" %% "scalatest" % "3.2.2",
     "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
-    "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion,
-    "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
+    "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion, 
     "com.typesafe.akka" %% "akka-stream" % akkaVersion,
     "com.typesafe.akka" %% "akka-persistence-typed" % akkaVersion,
     "com.typesafe.akka" %% "akka-persistence-query" % akkaVersion,

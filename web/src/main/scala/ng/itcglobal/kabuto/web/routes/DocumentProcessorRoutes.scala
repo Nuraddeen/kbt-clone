@@ -18,7 +18,7 @@ import akka.util.Timeout
 import ng.itcglobal.kabuto._
 import dms.{DocumentProcessorService, JsonSupport}
 
-class DocumentProcessorRoutes(documentProcessorService: ActorRef[DocumentProcessorService.ProcessDocumentCommand])(implicit system: ActorSystem[_]) extends JsonSupport {
+class DocumentProcessorRoutes(documentProcessorService: ActorRef[DocumentProcessorService.Command])(implicit system: ActorSystem[_]) extends JsonSupport {
 
   implicit val timeout: Timeout = 10.seconds
 
@@ -27,42 +27,24 @@ class DocumentProcessorRoutes(documentProcessorService: ActorRef[DocumentProcess
       concat(
         path(Segment / Segment) { (fileNumber, fileType) =>          
           get {
-            val futRes: Future[DocumentProcessorService.ProcessDocumentResponse] =
+            val futRes =
               documentProcessorService.ask(DocumentProcessorService.GetDocument(fileNumber, fileType, _))
             
               onComplete(futRes) {
-                case Success(document) =>
-                  document match {
-                    case DocumentProcessorService.DataResponse(dataResponse) =>
-                      complete(dataResponse)
-                    case DocumentProcessorService.ErrorResponse(msg) =>
-                      failWith(throw new Exception (msg))
-                    case _ =>
-                      failWith(throw new Exception( "Unknown error occured"))
-                  }
-                case Failure(exception) =>
-                  failWith(throw new Exception("Unable to complete the request"))
+                case Success(response) =>  complete(response)
+                case Failure(exception) => failWith(throw new Exception("Unable to complete the request"))
             }
           }
         },
         post {
           entity(as[DocumentProcessorService.DocumentDto]) { docDto =>
 
-            val futRes: Future[DocumentProcessorService.ProcessDocumentResponse] =
+            val addDocument =
               documentProcessorService.ask(DocumentProcessorService.AddDocument(docDto, _))
 
-            onComplete(futRes) {
-              case Success(result) =>
-                result match {
-                   case DocumentProcessorService.DataResponse(dataResponse) =>
-                      complete(dataResponse)
-                    case DocumentProcessorService.ErrorResponse(msg) =>
-                      failWith(throw new Exception (msg))
-                    case _ =>
-                      failWith( throw new Exception("Unknown error occured"))
-                }
-              case Failure(exception) =>
-                failWith(throw new Exception("Unable to complete the request"))
+            onComplete(addDocument) {
+              case Success(response) =>  complete(response)
+              case Failure(exception) => failWith(throw new Exception("Unable to complete the request"))
             }
           }
         }

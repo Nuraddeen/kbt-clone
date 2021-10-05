@@ -26,8 +26,10 @@ lazy val akkaVersion     = "2.6.10"
 lazy val doobieVersion   = "0.12.1"
   
   def ivyDeps = Agg(
-    ivy"com.typesafe.akka::akka-actor:$akkaVersion",
-    ivy"com.typesafe.akka::akka-http:$akkaHttpVersion",
+      ivy"com.typesafe.akka::akka-actor:$akkaVersion",
+      ivy"com.typesafe.akka::akka-http-testkit:$akkaHttpVersion",
+    
+      ivy"com.typesafe.akka::akka-http:$akkaHttpVersion",
       ivy"com.typesafe.akka::akka-http-spray-json:$akkaHttpVersion",
       ivy"com.typesafe.akka::akka-actor-typed:$akkaVersion",
       ivy"com.typesafe.akka::akka-actor-testkit-typed:$akkaVersion",
@@ -49,7 +51,11 @@ lazy val doobieVersion   = "0.12.1"
       ivy"org.tpolecat::doobie-hikari:0.12.1",          // HikariCP transactor.
       ivy"org.tpolecat::doobie-postgres:0.12.1",          // Postgres driver 42.2.19 + type mappings.
       ivy"org.tpolecat::doobie-quill:0.12.1",          // Support for Quill 3.6.1
-  )
+      ivy"org.tpolecat::doobie-specs2:0.12.1", // Specs2 support for typechecking statements.
+      ivy"org.tpolecat::doobie-scalatest:0.12.1", // ScalaTest support for typechecking statements.
+      ivy"ch.megard::akka-http-cors:1.0.0"
+  
+      )
 
   object test extends Tests{
     def ivyDeps = Agg(
