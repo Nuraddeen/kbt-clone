@@ -96,15 +96,8 @@ class DocumentMetadataDbServiceSpec extends ScalaTestWithActorTestKit
       probe.expectMessage(DocumentMetadataSaved(documentMetadata.id))
     }
 
-    "get all counts with one 1 record when only 1 exist in the database" in {
-      documentDbService ! GetDocumentMetadataCount(probe.ref)
-      probe.awaitAssert(AllDocumentsMetadataCount(1))
-    }
-
-    "return zero (0) value for counts from the database when there are no records" in {
-      documentDbService ! GetDocumentMetadataCount(probe.ref)
-      probe.awaitAssert(AllDocumentsMetadataCount(0))
-    }
+  
+ 
 
     s"return the collection of all (${docsList.length} of them) documents metadata from the database" in {
       

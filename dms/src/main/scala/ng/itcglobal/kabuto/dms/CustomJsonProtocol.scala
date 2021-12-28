@@ -1,5 +1,9 @@
 package ng.itcglobal.kabuto
 package dms
+
+import java.util.UUID
+import java.time.format.DateTimeFormatter
+import java.time.LocalDateTime
  
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json.DefaultJsonProtocol
@@ -14,8 +18,9 @@ import core.util.Util.KabutoApiHttpResponse
 
 
 import FileManagerService.Application
+import ng.itcglobal.kabuto.core.db.postgres.Tables
 
-trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
+trait CustomJsonProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   import JobRepository._
 
   implicit object StatusFormat extends RootJsonFormat[Status] {
@@ -31,9 +36,31 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
     }
   }
 
+
+   implicit object UUIDFormat extends RootJsonFormat[UUID] {
+    def write(obj: UUID): JsValue = JsString(obj.toString())
+
+     def read(json: JsValue): UUID = json match {
+      case JsString(str) => UUID.fromString(str)
+      case _ => throw new DeserializationException("invalid UUID string")
+    }
+  }
+
+  implicit object DateJsonFormat extends RootJsonFormat[LocalDateTime] {
+
+    private val formatter = DateTimeFormatter.ISO_DATE_TIME
+
+    override def write(obj: LocalDateTime)          = JsString(obj.format(formatter))
+    override def read(json: JsValue): LocalDateTime = json match {
+      case JsString(s) => LocalDateTime.parse(s, formatter)
+      case _ => throw new DeserializationException("Error info you want here ...")
+    }
+  }
+
   implicit val jobFormat = jsonFormat4(Job)
   implicit val appFormat = jsonFormat2(Application)
   implicit val docDtoFormat = jsonFormat7(DocumentProcessorService.DocumentDto)
+  implicit val docMetadataFormat = jsonFormat7(DocumentProcessorService.DocumentMetaDataPayload)
 
 
 

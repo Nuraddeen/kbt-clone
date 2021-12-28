@@ -1,7 +1,7 @@
 package ng.itcglobal.kabuto
 package dms
 
-import java.util.{Base64, UUID}
+import java.util.{UUID}
 import java.time.LocalDateTime
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,7 +24,7 @@ import core.util.Enum.HttpResponseStatus
 import core.util.Util._
 import dms.FileManagerService._
 
-object DocumentProcessorService extends JsonSupport {
+object DocumentProcessorService extends CustomJsonProtocol {
 
   case class DocumentDto(
       fileString: String,
@@ -51,6 +51,18 @@ object DocumentProcessorService extends JsonSupport {
 
   }
 
+
+   case class DocumentMetaDataPayload(
+      fileNumber: String,
+      fileType: String,
+      title: String,
+      capturedAt: LocalDateTime = LocalDateTime.now(),
+      updatedAt: Option[LocalDateTime],
+      createdBy: String,
+      updatedBy: Option[String]
+  )
+
+
   sealed trait  Command
   case class AddDocument(
       documentDto: DocumentDto,
@@ -66,12 +78,17 @@ object DocumentProcessorService extends JsonSupport {
       filePath: String,
       replyTo: ActorRef[KabutoApiHttpResponse]
   ) extends Command
+ 
+  case class GetAllDocumentsMetadataByFileNumberCommand( 
+      fileNumber: String,
+      replyTo: ActorRef[KabutoApiHttpResponse]
+  ) extends Command
 
 
   implicit val timeout: Timeout = 3.seconds
 
   def apply(
-      documentMetadataDbServiceActor: ActorRef[
+      documentMetadataDbService: ActorRef[
         DocumentMetadataDbService.DocumentMetadataCommand
       ],
       fileManagerServiceActor: ActorRef[FileManagerService.FileCommand]
@@ -83,7 +100,7 @@ object DocumentProcessorService extends JsonSupport {
 
       message match {
         case req: AddDocument =>
-          documentMetadataDbServiceActor.ask(
+          documentMetadataDbService.ask(
             RetrieveDocumentMetadata(
               req.documentDto.fileNumber,
               req.documentDto.fileType,
@@ -116,7 +133,7 @@ object DocumentProcessorService extends JsonSupport {
                         createdBy = req.documentDto.createdBy,
                         updatedBy = None
                       )
-                      documentMetadataDbServiceActor.ask(
+                      documentMetadataDbService.ask(
                         SaveDocumentMetadata(docMetaData, _)
                       ) onComplete {
                         case Success(DocumentMetadataSaved(_)) =>
@@ -124,7 +141,7 @@ object DocumentProcessorService extends JsonSupport {
                           //delete existing metadata
                           for (metadata <- existingMetadaList) {
                             fileManagerServiceActor .ask( DeleteFile(metadata.filePath, _))
-                            documentMetadataDbServiceActor .ask(DeleteDocumentMetadata(metadata.id, _))
+                            documentMetadataDbService .ask(DeleteDocumentMetadata(metadata.id, _))
                           }
 
                           req.replyTo ! 
@@ -189,7 +206,7 @@ object DocumentProcessorService extends JsonSupport {
           Behaviors.same
 
         case req: GetDocument =>
-          documentMetadataDbServiceActor.ask(
+          documentMetadataDbService.ask(
             RetrieveDocumentMetadata(req.fileNumber, req.fileType, _)
           ) onComplete {
             case Success(
@@ -265,12 +282,12 @@ object DocumentProcessorService extends JsonSupport {
 
             case Failure(exception) =>
               log.error(
-                s"Could not retrieve file string $exception, for the request $req"
+                s"Could not retieve document metadata $exception, for the request $req"
               )
               req.replyTo !  
                KabutoApiHttpResponse(
                               status = HttpResponseStatus.Failed,
-                              description = "Could not retrieve file string",
+                              description = "Could not retrieve  document metadata",
                               code = Some(HttpResponseStatus.Failed.id)
                             )
 
@@ -291,7 +308,7 @@ object DocumentProcessorService extends JsonSupport {
           fileManagerServiceActor.ask(DeleteFile(req.filePath, _)) onComplete {
             case Success(FileProcessOK) =>
               //file deleted from disk, now delete its metadata
-              documentMetadataDbServiceActor.ask(
+              documentMetadataDbService.ask(
                 DeleteDocumentMetadata(req.docId, _)
               ) onComplete {
                 case Success(DocumentMetadataProcessed) =>
@@ -347,6 +364,54 @@ object DocumentProcessorService extends JsonSupport {
               
           }
           Behaviors.same
+
+
+
+
+             case req: GetAllDocumentsMetadataByFileNumberCommand =>
+          documentMetadataDbService.ask(
+            FetchAllMetadataByFileNumberCommand(req.fileNumber, _)
+          ) onComplete {
+            case Success(
+                  DocumentMetadataRetrieved(docMetadataList)
+                ) =>  
+              req.replyTo !  
+                KabutoApiHttpResponse(
+                  status = HttpResponseStatus.Success,
+                  description = "List of all document metadata by file number",
+                  code = Some(HttpResponseStatus.Success.id),
+                  data = Some(docMetadataList.map(
+                  metaData => DocumentMetaDataPayload(
+                       fileNumber= metaData.fileNumber,
+                      fileType = metaData.fileType,
+                      title = metaData.title,
+                      capturedAt = metaData.capturedAt,
+                      updatedAt = metaData.updatedAt,
+                      createdBy = metaData.createdBy,
+                      updatedBy = metaData.updatedBy
+                  )
+                  ).toJson
+                  )
+                
+              )
+          
+
+            case Failure(exception) =>
+              log.error(
+                s"Could not fetch all document meta data $exception, for the request $req"
+              )
+              req.replyTo !  
+               KabutoApiHttpResponse(
+                              status = HttpResponseStatus.Failed,
+                              description = "Could not fetch all document metadata by file number",
+                              code = Some(HttpResponseStatus.Failed.id)
+                            )
+
+          }
+
+          Behaviors.same
+
+
       }
 
     }

@@ -14,9 +14,9 @@ import akka.http.scaladsl.server.Route
 import akka.util.Timeout
 
 import ng.itcglobal.kabuto._
-import dms.{FileManagerService, JsonSupport}
+import dms.{FileManagerService, CustomJsonProtocol}
 
-class ApplicationProcessorRoutes(fileMangerService: ActorRef[FileManagerService.FileCommand])(implicit system: ActorSystem[_]) extends JsonSupport {
+class ApplicationProcessorRoutes(fileMangerService: ActorRef[FileManagerService.FileCommand])(implicit system: ActorSystem[_]) extends CustomJsonProtocol {
 
   implicit val timeout: Timeout = 10.seconds
 

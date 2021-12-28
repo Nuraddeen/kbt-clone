@@ -16,15 +16,27 @@ import akka.http.scaladsl.server.Route
 import akka.util.Timeout
 
 import ng.itcglobal.kabuto._
-import dms.{DocumentProcessorService, JsonSupport}
+import dms.{DocumentProcessorService, CustomJsonProtocol}
 
-class DocumentProcessorRoutes(documentProcessorService: ActorRef[DocumentProcessorService.Command])(implicit system: ActorSystem[_]) extends JsonSupport {
+class DocumentProcessorRoutes(documentProcessorService: ActorRef[DocumentProcessorService.Command])(implicit system: ActorSystem[_]) extends CustomJsonProtocol {
 
   implicit val timeout: Timeout = 10.seconds
 
   lazy val documentMetadataRoutes: Route = {
     pathPrefix("documents") {
       concat(
+        path(Segment) { (fileNumber) =>          
+          get {
+            val futRes =
+              documentProcessorService.ask(DocumentProcessorService.GetAllDocumentsMetadataByFileNumberCommand(fileNumber, _))
+            
+              onComplete(futRes) {
+                case Success(response) =>  complete(response)
+                case Failure(exception) => failWith(throw new Exception("Unable to complete the request"))
+            }
+          }
+        },  
+        
         path(Segment / Segment) { (fileNumber, fileType) =>          
           get {
             val futRes =

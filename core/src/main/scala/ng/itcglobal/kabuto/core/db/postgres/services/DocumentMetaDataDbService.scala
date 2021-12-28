@@ -19,6 +19,8 @@ object DocumentMetadataDbService extends DatabaseContext {
   import doobie.implicits._
   import quillContext._
 
+
+
   sealed trait DocumentMetadataCommand
   case class SaveDocumentMetadata(
       document: DocumentMetadata,
@@ -44,25 +46,20 @@ object DocumentMetadataDbService extends DatabaseContext {
         .unsafeToFuture()
   }
 
-  case class GetAllDocumentsMetadata(
+
+ case class FetchAllMetadataByFileNumberCommand(
+      fileNumber: String, 
       replyTo: ActorRef[DocumentMetadataResponse]
   ) extends DocumentMetadataCommand {
     def runQuery: Future[List[DocumentMetadata]] =
-      run(query[DocumentMetadata])
-        .transact(xa)
+      run(
+        query[DocumentMetadata]
+          .filter( meta=> meta.fileNumber.equals(lift(fileNumber)) )
+      ).transact(xa)
         .unsafeToFuture()
   }
 
-  case class GetDocumentMetadataCount(
-      replyTo: ActorRef[DocumentMetadataResponse]
-  ) extends DocumentMetadataCommand {
-    def runQuery: Future[Int] =
-      sql"""SELECT count(*) FROM document_metadata;"""
-        .query[Int]
-        .unique
-        .transact(xa)
-        .unsafeToFuture()
-  }
+ 
 
   case class DeleteDocumentMetadata(
       docId: UUID,
@@ -99,9 +96,7 @@ object DocumentMetadataDbService extends DatabaseContext {
 
       message match {
         case req: SaveDocumentMetadata =>
-          val futResult: Future[Long] = req.runQuery
-
-          futResult onComplete {
+         req.runQuery onComplete {
             case Success(1) => 
                   log.info("Document successfully saved {}", message)
                   req.replyTo ! DocumentMetadataSaved(req.document.id)
@@ -123,9 +118,7 @@ object DocumentMetadataDbService extends DatabaseContext {
           Behaviors.same
 
         case req: RetrieveDocumentMetadata =>
-          val futResult: Future[List[DocumentMetadata]] = req.runQuery
-
-          futResult onComplete {
+           req.runQuery onComplete {
             case Success(docMetadataList) =>
               req.replyTo ! DocumentMetadataRetrieved(docMetadataList)
             case Failure(exception) =>
@@ -139,41 +132,7 @@ object DocumentMetadataDbService extends DatabaseContext {
 
           Behaviors.same
 
-        case req: GetAllDocumentsMetadata =>
-          val futResult = req.runQuery
-
-          futResult onComplete {
-            case Success(docsList) =>
-              req.replyTo ! AllDocumentsMetadata(docsList)
-              Behaviors.same
-
-            case Failure(exception) =>
-              log.error(
-                s"Could not retrieve all documents metadata {$exception}, request $req"
-              )
-              req.replyTo ! DocumentMetadataFailure(
-                "Could not retrieve all documents metadata"
-              )
-          }
-
-          Behaviors.same
-
-        case req: GetDocumentMetadataCount =>
-          req.runQuery
-            .onComplete {
-              case Success(count) =>
-                req.replyTo ! AllDocumentsMetadataCount(count)
-              case Failure(exception) =>
-                log.error(
-                  s"Could not retrieve documents metadata count {$exception}, request $req"
-                )
-                req.replyTo ! DocumentMetadataFailure(
-                  "Could not retrieve documents metadata count"
-                )
-            }
-
-          Behaviors.same
-
+       
         case req: DeleteDocumentMetadata =>
           req.runQuery
             .onComplete {
@@ -186,6 +145,22 @@ object DocumentMetadataDbService extends DatabaseContext {
                   "Could not delete document metadata"
                 )
             }
+
+          Behaviors.same
+  
+  
+      case req: FetchAllMetadataByFileNumberCommand =>
+           req.runQuery  onComplete {
+            case Success(docMetadataList) =>
+              req.replyTo ! DocumentMetadataRetrieved(docMetadataList)
+            case Failure(exception) =>
+              log.error(
+                s"Could not retrieve document meta data {$exception}, request $req"
+              )
+              req.replyTo ! DocumentMetadataFailure(
+                "Could not retrieve document meta data"
+              )
+          }
 
           Behaviors.same
 
