@@ -1,6 +1,9 @@
-package ng.itcglobal.kabuto.dms
+package ng.itcglobal.kabuto
+package dms
 
 import java.util.Base64
+
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 
@@ -10,7 +13,6 @@ import better.files.Dsl._
 import ng.itcglobal.kabuto._
 import core.util.{Config, Enum}
 
-import org.scalatest.wordspec.AnyWordSpecLike
 
 class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
 
@@ -73,7 +75,6 @@ class FileManagerServiceSpec extends ScalaTestWithActorTestKit with AnyWordSpecL
     "assert that wrong dir will throw a FileResponseError" in {
       val fileBytes = Base64.getEncoder.encodeToString(File("data/dms/test/test-image-extension/test-tiff-file.tiff").bytes.toArray)
 
-      println(fileBytes.take(20))
       val appendFile = AppendFileToDir(
         filename   = "testFile",
         fileString = fileBytes,

@@ -3,7 +3,7 @@ CREATE DATABASE kabuto_db;
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-CREATE TABLE IF NOT EXISTS 'application' (
+CREATE TABLE IF NOT EXISTS application (
     file_number varchar NOT NULL PRIMARY KEY,
     applicant_name varchar NOT NULL,
     created_by varchar NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS 'application' (
 );
 
 CREATE TABLE IF NOT EXISTS document (
-    document_id uuid NOT NULL PRIMARY KEY,
+    document_id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
     file_number varchar NOT NULL,
     file_content text NOT NULL,
     uploaded_by varchar NOT NULL,
@@ -23,19 +23,17 @@ CREATE TABLE IF NOT EXISTS document (
 
 
 
-CREATE TABLE public.document_metadata (
-	id uuid NOT NULL,
-	file_path text NOT NULL,
+CREATE TABLE IF NOT EXISTS public.document_metadata (
+	id uuid NOT NULL PRIMARY KEY  DEFAULT uuid_generate_v4(),
+	file_path text NOT NULL UNIQUE,
 	file_number varchar NOT NULL,
 	file_type varchar NOT NULL,
 	title varchar NOT NULL,
 	captured_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP,
 	created_by varchar NOT NULL,
-	updated_by varchar NULL,
+	updated_by varchar NULL
 );
-ALTER TABLE document_metadata ADD CONSTRAINT document_metadata_file_path_key UNIQUE (file_path);
-ALTER TABLE document_metadata ADD CONSTRAINT document_metadata_pkey PRIMARY KEY (id);
 
 
  

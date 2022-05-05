@@ -6,7 +6,7 @@ target/
 .vscode/
 metals.sbt
 **/metals.sbt
-project/project/
+project/
 data/apitest/
 out/
 mill.UWop

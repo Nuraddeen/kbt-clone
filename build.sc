@@ -41,7 +41,6 @@ lazy val doobieVersion   = "0.12.1"
       ivy"com.typesafe.akka::akka-persistence-cassandra:1.0.3",
       ivy"ch.qos.logback:logback-classic:1.2.3",
       ivy"io.spray::spray-json:1.3.6",
-      ivy"de.heikoseeberger::akka-http-circe:1.31.0",
       ivy"com.twelvemonkeys.imageio:imageio-tiff:3.6.4",
       ivy"com.twelvemonkeys.imageio:imageio-core:3.6.4",
       ivy"com.twelvemonkeys.contrib:contrib:3.6.4",
